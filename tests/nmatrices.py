@@ -10,6 +10,7 @@
 
 #                             # IMPORTS #                                      #
 import math
+import random
 
 ################################################################################
 
@@ -17,9 +18,15 @@ import math
 
 class Matrix:
     def __init__(self, width, height):
-        self.width = width
-        self.height = height
-        self.matrix = [[0 for j in range(width)] for i in range(height)]
+        if (width > 0 and height > 0):
+            self.width = width
+            self.height = height
+            self.matrix = [[random.random() for j in range(width)] for i in range(height)]
+        else:
+            self.width = 0
+            self.height = 0
+            self.matrix = 0
+
 
     def getwidth(self):
         return self.width
@@ -28,10 +35,16 @@ class Matrix:
         return self.height
 
     def showItems(self):
-        for i in range(height):
-            for j in range(width):
-                print(str(self.matrix[i][j]) + "\t")
-            print("\n")
+        if (self.width > 0 and self.height > 0):
+            for i in range(self.height):
+                rowstr = ""
+                for j in range(self.width):
+                    v = str(round(self.matrix[i][j], 2))
+                rowstr += v + "\t"
+                print(rowstr + "\n")
+
+        else:
+            print("Cannot show matrix items: improper attributes")
 
     def setItem(self, row, col, val):
         try:
@@ -42,7 +55,7 @@ class Matrix:
 
     def getItem(self, row, col):
         try:
-            return self.matrix[m3row][col]
+            return self.matrix[row][col]
         except IndexError:
             return "row or column exceeds range"
         except:
@@ -79,4 +92,12 @@ def matrix_multiply(m1, m2):
             return 2
         except:
             return 0
+
+def make_vector(size, rdm):
+    v = Matrix(1, size)
+    if rdm == False:
+        for i in range(size):
+            v.setItem(i, 0, 0)
+
+    return v
 ################################################################################
