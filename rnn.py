@@ -48,7 +48,7 @@ class RNN:
     def calc_timesteps(self, t, w, i):
         if (t > 0):
             previous_state = hidden_states[t - 1]
-            hw = this.hidden_weights
+            hw = self.hidden_weights
             current_state_pre_activation = matrix_multiply(hw, previous_state)
             u = current_state_pre_activation[i]
 
