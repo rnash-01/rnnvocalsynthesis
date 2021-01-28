@@ -22,7 +22,7 @@ SAMPLE_SIZE = 0  # How large a given audio sample will be. Max size.
 # into it.
 INPUT_SIZE = 0
 
-# The name of the voice:
+# The name of the voice (example, for the time being):
 VNAME = "borisjohnson"
 
 ################################################################################
