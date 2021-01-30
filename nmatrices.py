@@ -17,11 +17,14 @@ import random
 #                              # CLASSES #                                     #
 
 class Matrix:
-    def __init__(self, width, height):
+    def __init__(self, width, height, rnd):
         if (width > 0 and height > 0):
             self.width = width
             self.height = height
-            self.matrix = [[random.random() for j in range(width)] for i in range(height)]
+            if rnd:
+                self.matrix = [[random.random() for j in range(width)] for i in range(height)]
+            else:
+                self.matrix = [[0 for j in range(width)] for i in range(height)]
         else:
             self.width = 0
             self.height = 0
@@ -74,7 +77,7 @@ def matrix_multiply(m1, m2):
         newheight = m1.getheight()  # height of resultant matrix
 
         try:
-            m3 = Matrix(width, height)
+            m3 = Matrix(width, height, False)
             for i in range(height):
                 for j in range(width):
                     sum = 0
@@ -93,11 +96,37 @@ def matrix_multiply(m1, m2):
         except:
             return 0
 
-def make_vector(size, rdm):
-    v = Matrix(1, size)
-    if rdm == False:
-        for i in range(size):
-            v.setItem(i, 0, 0)
+def matrix_add(m1, m2):
+    if (m1.getwidth() == m2.getwidth() && m1.getheight() == m2.getheight()):
+        width = m1.getwidth()
+        height = m1.getheight()
+        m3 = Matrix(width, height, False1)
+        for i in range(height):
+            for j in range(width):
+                val1 = m1.getItem(i, j)
+                val2 = m2.getItem(i, j)
+                m3.setItem(i, j, val1 + val2)
 
+        return m3
+    else:
+        return 1
+
+
+
+def make_vector(size, rdm):
+    if rdm == False:
+        v = Matrix(1, size, False)
+    else:
+        v = Matrix(1, size, True)
     return v
+
+def copy_matrix(m):
+    width = m.getwidth()
+    height = m.getheight()
+    newmatrix = Matrix(width, height, False)
+    for i in range(height):
+        for j in range(width):
+            val = m.getItem(i, j)
+            newmatrix.setItem(i, j, val)
+    return newmatrix
 ################################################################################
