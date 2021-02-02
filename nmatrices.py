@@ -43,7 +43,7 @@ class Matrix:
                 rowstr = ""
                 for j in range(self.width):
                     v = str(round(self.matrix[i][j], 2))
-                rowstr += v + "\t"
+                    rowstr += v + "\t"
                 print(rowstr + "\n")
 
         else:
@@ -97,10 +97,10 @@ def matrix_multiply(m1, m2):
             return 0
 
 def matrix_add(m1, m2):
-    if (m1.getwidth() == m2.getwidth() && m1.getheight() == m2.getheight()):
+    if (m1.getwidth() == m2.getwidth() and m1.getheight() == m2.getheight()):
         width = m1.getwidth()
         height = m1.getheight()
-        m3 = Matrix(width, height, False1)
+        m3 = Matrix(width, height, False)
         for i in range(height):
             for j in range(width):
                 val1 = m1.getItem(i, j)
@@ -120,6 +120,13 @@ def make_vector(size, rdm):
         v = Matrix(1, size, True)
     return v
 
+def vector_operation(vector, operation):
+    for i in range(vector.height):
+        val = operation(vector.getItem(i, 0))
+        vector.setItem(i, 0, val)
+    return vector
+
+
 def copy_matrix(m):
     width = m.getwidth()
     height = m.getheight()
@@ -129,4 +136,12 @@ def copy_matrix(m):
             val = m.getItem(i, j)
             newmatrix.setItem(i, j, val)
     return newmatrix
+
+def make_identity(size):
+    # Construct an identity matrix
+    m = Matrix(size, size, False)
+    for i in range(size):
+        m.setItem(i, i, 1)
+    return m
+
 ################################################################################

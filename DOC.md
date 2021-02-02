@@ -2,41 +2,43 @@
 ## rnn.py
 ### `class RNN()`
 
-#### `RNN.calc_change(self, n, observed, expected, u, v)`
+#### `RNN.__init__(self, size_input, size_hidden, size_output, size_timesteps)`
 
-Calculates the required change in a weight/perceptron/bias between one layer
-and the one before it.
+The constructor of the RNN class. It implements the architecture of an RNN.
+The following attributes are initialised:
 
-#### `RNN.forward_pass(self)`
+- `input` (*Matrix*) - this is the input layer of the RNN.
 
-Uses current configuration of the input vector to perform a forward pass through
-one timestep. The state of each layer is preserved until the next forward pass,
-or until another method resets their values.
+  It is defined as a Matrix, but takes the abstract form of a vector. It is kept as a
+  Matrix to be used in Matrix calculations. The same reasoning applies to `hidden`, `output` and to the elements of `biases` and `memory`.
+- `hidden` (*Matrix*) - this is the hidden layer of the RNN.
 
-#### `RNN.set_input(self, input)`
+  Defined as a Matrix, but with 1 column to imitate a vector for Matrix calculations
+- `output` (*Matrix*)- this is the output layer of the RNN.
 
-Assigns a new value to the input vector of the RNN.
+  Defined as a Matrix, but with 1 column to imitate a vector for Matrix calculations
+- `weights` (*Matrix[]*) - this is an array that comprises the two weight matrices,
+  going from input to hidden, and going from hidden to output, respectively.
+- `biases` (*Matrix[]*) - this is an array that comprises the two bias vectors, applied
+  to hidden and to output respectively.
 
-Parameters:
-- `input` - an instance of the Matrix class, acting as a vector - this is the
-vector that will be assigned to the input
+  Each element is defined as a Matrix, but with 1 column to imitate a vector for Matrix calculations
+- `memory` (*Matrix[]*) - this is an array that contains the past *size_timesteps*
+  timesteps. This will be reset at each forward pass for training purposes, but
+  may be kept and just updated in a normal context.
 
-#### `RNN.train_dataset(self, dataset)`
-Takes in training data, splits it into groups of **t** timeframes,
-and calls `RNN.train` on each sample (*each sample represents the* ***t*** *timeframes*)
+  Each element is defined as a Matrix, but with 1 column to imitate a vector for Matrix calculations
+- `hidden_weights` (*Matrix*) - a single square Matrix of size *size_hidden*.
 
-Parameters:
-- `dataset` - a 2-dimensional array, consisting of:
-  1. Every recorded group of frequencies throughout the audio recording
-  2. the input vector (your voice), and the expected output vector (their voice)
+  This will contain all of the weights that are applied to a hidden layer at timestep *t* to calculate the state of the hidden layer at timestep *t + 1*.
 
-Return value: `void`
+#### `RNN.forward_pass(self, input)`
 
-#### `RNN.train(self, sample)`
+This method performs a forward pass through the network, across however
+many timesteps there are.
 
-Changes weights based on one sample. A sample is a 2-dimensional array, consisting of:
-1. Dimension 1: the collected frequencies at each timestep in the sample
-2. Dimension 2: the input vector, and the expected output vector
+- `input` (*Matrix[]*) - the input samples to the network
 
-Parameters
-i.e. [[input_1, expected_1], [input_2, expected_2], ... , [input_t, expected_t]]
+  The input is formatted as a list of Matrix objects that each represent a timestep
+  in the network. The maximum length of this input is the length of the
+  `memory` list attribute of the RNN instance.
