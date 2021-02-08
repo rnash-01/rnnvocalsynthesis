@@ -9,10 +9,13 @@ from nmatrices import *
 
 ############################## TESTING BEGINS HERE #############################
 
+def arbitrary_op(val):
+    return 100 * val
+
 def randmatrix(maxwidth, maxheight):
     width = random.randint(1, maxwidth)
     height = random.randint(1, maxheight)
-    m = Matrix(width, height)
+    m = Matrix(width, height, True)
     return m
 
 def t_matrix_init():
@@ -21,7 +24,7 @@ def t_matrix_init():
     print("Test 1: init matrix with correct params:")
     it()
     try:
-        m = Matrix(10, 15)
+        m = Matrix(10, 15, True)
         ins()
         print("Passed")
 
@@ -32,7 +35,7 @@ def t_matrix_init():
     print("Test 2: init matrix with incorrect params:")
     it()
     try:
-        m = Matrix(-56, 3.6)
+        m = Matrix(-56, 3.6, True)
         ins()
         print("Passed")
     except Exception as e:
@@ -137,8 +140,8 @@ def t_matrix_multiply():
     print("Test 1: Valid params (m1.width = m2.height)")
     it()
     try:
-        m1 = Matrix(shared, m1height)
-        m2 = Matrix(m2width, shared)
+        m1 = Matrix(shared, m1height, True)
+        m2 = Matrix(m2width, shared, True)
         m3 = matrix_multiply(m1, m2)
         ins()
         print("Passed")
@@ -154,8 +157,8 @@ def t_matrix_multiply():
         m2height = random.randint(1, 5)
 
     try:
-        m1 = Matrix(m1width, m1height)
-        m2 = Matrix(m2width, m2height)
+        m1 = Matrix(m1width, m1height, True)
+        m2 = Matrix(m2width, m2height, True)
         m3 = matrix_multiply(m1, m2)
         if m3 == 0:
             ins()
@@ -171,6 +174,29 @@ def t_matrix_multiply():
     # Note: line 155; in lieu of a do/while feature in Python, I just ensured
     # that the while condition was true to begin with, so that I could
     # properly ensure that the two are different in the end
+
+def t_matrix_add():
+    print("\n===== matrix_add() =====\n")
+    print("Test:")
+    it()
+    width = random.randint(1, 10)
+    height = random.randint(1, 10)
+    try:
+        m1 = Matrix(width, height, True)
+        m1.showItems()
+        print("ADDING TO")
+        m2 = Matrix(width, height, True)
+        m2.showItems()
+        m3 = matrix_add(m1, m2)
+        print("=")
+        m3.showItems()
+
+        print("Passed")
+        ins()
+    except Exception as e:
+        print("Failed")
+        printerror(e)
+
 
 def t_make_vector():
     print("\n===== make_vector() =====\n")
@@ -209,13 +235,33 @@ def t_make_vector():
 
     finishtest()
 
+def t_vector_operation():
+    print("\n===== t_vector_operation() =====\n")
+
+    print("Test: using arbitrary_op (f(n) = 100n)")
+    it()
+    v = make_vector(15, True)
+    try:
+        print("First vector:")
+        v.showItems()
+        newv = vector_operation(v, arbitrary_op)
+        print("Second vector: ")
+        newv.showItems()
+        ins()
+        print("Passed")
+    except Exception as e:
+        print("Failed")
+        printerror(e)
+
 def main():
     t_matrix_init()
     t_matrix_showItems()
     t_matrix_setItem()
     t_matrix_getItem()
     t_matrix_multiply()
+    t_matrix_add()
     t_make_vector()
+    t_vector_operation()
 
     gs = getgs()
     gt = getgt()
