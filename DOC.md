@@ -34,8 +34,7 @@ The following attributes are initialised:
 
 #### `RNN.forward_pass(self, input)`
 
-This method performs a forward pass through the network, across however
-many timesteps there are.
+This method performs a forward pass through the network; one timestep
 
 - `input` (*Matrix[]*) - the input samples to the network
 

@@ -41,9 +41,13 @@ class RNN:
             self.biases.append(b)
 
         # Initialise hidden weights
-        self.hidden_weights = make_identity(hidden_size)
+        self.hidden_weights = make_identity(size_hidden)
 
+    def calc_change(n, u, y, yhat, v):
+        return (2/n) * (y - yhat) * (ReLU_prime(u)) * (v)
     def backprop(self, inputs, observations, expectations):
+        weight_changes = []
+        bias_changes = []
         for t in range(len(inputs)):
             input = inputs[t]
             output = observations[t]
@@ -51,8 +55,6 @@ class RNN:
             hidden_state = self.memory[t]
 
             # First, perform backprop on each timeframe
-            weight_changes = []
-            bias_changes = []
             for w in self.weights:
                 weight_changes.append(Matrix(w.width, w.height, False))
             for b in self.biases:
@@ -67,34 +69,83 @@ class RNN:
                 current = layers[i]
                 next = layers[i - 1]
                 next_changes = make_vector(next.height, False)
+                y_preact = matrix_multiply(weights, next)
                 for r in range(weights.height):
-                    b = biases.getItem(r, 0)  # Bias
+                    y = current.getItem(r, 0)
+                    expected_y = expected.getItem(r, 0)
+                    u = y_preact.getItem(r, 0)
                     current_db = bias_changes[i].getItem(r, 0)
-                    db = current_db - calc_change_bias('STUFF GOES HERE')
+
+                    db = current_db - calc_change(current.height, u, y, expected_y, 1)
                     bias_changes[i].setItem(r, 0, db)
 
                     for c in range(weights.width):
                         w = weights.getItem(r, c)
+                        x = next.getItem(c, 0)
+
                         current_dw = weights_changes[i].getItem(r, c)
-                        dw = current_dw - calc_change_weight('STUFF GOES HERE')
+                        dw = current_dw - calc_change(current.height, u, y, expected_y, x)
                         weights_changes[i].setItem(r, c, dw)
 
-                        x = next.getItem(c)
                         current_dx = next_changes.getItem(c, 0)
-                        dx = current_dx - calc_change_x('STUFF GOES HERE')
+                        dx = current_dx - calc_change(current.height, u, y, expected_y, w)
                         next_changes.setItem(c, 0, dx)
 
                 expected = matrix_add(next, next_changes)
 
-            # Start iterating through timesteps
+        # Start iterating through timesteps
 
-            # Start with final output; then loop through the timesteps
-            final = observations[-1]
-            expected = expectations[-1]
-            weights = matrix_copy(self.weights[-1])
-            next = self.memory[-1]
+        # Start with final output; then loop through the timesteps
+        current = observations[-1]
+        expected = expectations[-1]
+        weights = matrix_copy(self.weights[-1])
 
-        # Then, perform backprop on hidden layers
+        hidden_weight_changes = Matrix(self.hidden_weights.width, self.hidden_weights.height, False)
+        next = self.memory[-1]
+        next_changes = make_vector(next.height, False)
+        for i in range(weights.height):
+            y = current.getItem(i, 0)
+            expected_y = current.getItem(i, 0)
+            for j in range(weights.width):
+                w = weights.getItem(i, j)
+                x = next.getItem(j, 0)
+                current_dx = next_changes.getItem(j, 0)
+                dx = current_dx - calc_change(current.height, u, y, expected_y, w)
+                next_changes.setItem(j, 0, dx)
+
+        expected = matrix_add(next, next_changes)
+
+        # Now start iterating through each of the timesteps
+        for i in range(self.timesteps - 1):
+            t = self.timesteps - 1 - i
+
+            current = self.memory[t]
+            next = self.memory[t - 1]
+            next_changes = make_vector(next.height, False)
+            for r in range(current.height):
+                y = current.getItem(r, 0)
+                expected = expected.getItem(r, 0)
+                for c in range(next.height):
+                    x = next.getItem(c, 0)
+                    w = self.hidden_weights.getItem(r, c)
+                    current_dx = next_changes.getItem(c, 0)
+                    dx = current_dx - calc_change(current.height, u, y, expected_y, w)
+                    next_changes.setItem(c, 0, dx)
+
+                    current_dw = hidden_weight_changes.getItem(r, c)
+                    dw = current_dw - calc_change(current.height, u, y, expected_y, x)
+                    hidden_weight_changes.setItem(r, c, dw)
+
+            expected = matrix_add(next, next_changes)
+
+        # Apply changes to each of the weights/biases
+
+        for i in range(len(self.biases)):
+            self.biases[i] = matrix_add(self.biases[i], bias_changes[i])
+        for i in range(len(self.weights)):
+            self.weights[i] = matrix_add(self.weights[i], self.weight_changes[i])
+
+        self.hidden_weights = matrix_add(self.hidden_weights, hidden_weight_changes)
 
     def set_input(self, input):
         self.input = copy_matrix(input)
