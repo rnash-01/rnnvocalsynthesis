@@ -9,7 +9,7 @@
 ################################################################################
 
 #                              # IMPORTS #                                 #
-from scipy.fft import ftt
+from scipy.fft import fft
 import rnn, wave
 
 ################################################################################
@@ -33,9 +33,36 @@ def getFname(type):
 
     return name
 
+def decodeAudio():
+    pass
+
+def encodeAudio():
+    pass
 
 def getAudio(intype, samp_size, fname):
-    pass
+    f = wave.open(fname, 'rb')
+
+    # Get some parameters of the file
+    channels = f.getnchannels()
+    sampwidth = f.getsampwidth()        # Bytes per sample
+    framerate = f.getframerate()        # Frames per second
+    n = f.getnframes()                  # Total number of frames
+
+    # Create some of my own parameters
+    sampsize = 1024                     # Frames per sample
+    readlim = math.ceil(n/sampsize)     # Number of samples we'll read
+
+    samples = []  # All samples
+    for i in range(readlim):
+        frames = []  # What we'll store our processed frames in
+        rawframes = f.readframes(sampsize).hex()
+        for j in range(sampsize - 1):
+            hexstring = rawframes[j * sampsize:(j + 1) * sampsize]
+            amplitude = binaryToDenary(hexToBinary(hexstring), signed, endianness)
+            frames.append(amplitude)
+
+    f.close()
+
 
 def process(data):
     pass
