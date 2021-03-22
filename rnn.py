@@ -45,6 +45,7 @@ class RNN:
 
     def calc_change(n, u, y, yhat, v):
         return (2/n) * (y - yhat) * (ReLU_prime(u)) * (v)
+
     def backprop(self, inputs, observations, expectations):
         weight_changes = []
         bias_changes = []
@@ -211,35 +212,11 @@ class LSTM(RNN):
 
     def train(self):
         # void
-        pass
-
-            observed = self.forward_pass(inputs[t])
-            observations.append(observed)
+        observed = self.forward_pass(inputs[t])
+        observations.append(observed)
         # Perform backprop
         self.backprop(self, inputs, observations, expectations)
 
     def train_dataset(self, dataset):
         for sample in dataset:
             train(sample)
-
-class LSTM(RNN):
-    def __init__(self):
-        # forget_net
-        # remember_net
-        pass
-
-    def activation_forget(self):
-        # float
-        pass
-
-    def activation_remember(self):
-        # float
-        pass
-
-    def __backproptime(self):
-        # void
-        pass
-
-    def train(self):
-        # void
-        pass

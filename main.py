@@ -9,8 +9,11 @@
 ################################################################################
 
 #                              # IMPORTS #                                 #
-from scipy.fft import fft
-import rnn, wave
+from scipy.fft import rfft, rfftfreq
+import rnn, wave, numpy, math
+from dataconversion import *
+import numpy as np
+from matplotlib import pyplot as plt
 
 ################################################################################
 
@@ -33,13 +36,13 @@ def getFname(type):
 
     return name
 
-def decodeAudio():
-    pass
+def decodeAudio(hexstring, signed, endianness):
+    return binaryToDenary(hexToBinary(hexstring), signed, endianness)
 
 def encodeAudio():
     pass
 
-def getAudio(intype, samp_size, fname):
+def getAudio(intype, fname):
     f = wave.open(fname, 'rb')
 
     # Get some parameters of the file
@@ -49,23 +52,38 @@ def getAudio(intype, samp_size, fname):
     n = f.getnframes()                  # Total number of frames
 
     # Create some of my own parameters
-    sampsize = 1024                     # Frames per sample
+    sampsize = framerates               # Frames per sample
     readlim = math.ceil(n/sampsize)     # Number of samples we'll read
 
+    # Read in all data into samples
     samples = []  # All samples
     for i in range(readlim):
-        frames = []  # What we'll store our processed frames in
         rawframes = f.readframes(sampsize).hex()
-        for j in range(sampsize - 1):
-            hexstring = rawframes[j * sampsize:(j + 1) * sampsize]
-            amplitude = binaryToDenary(hexToBinary(hexstring), signed, endianness)
-            frames.append(amplitude)
+        frames = []
+        for j in range(len(rawframes) - 1):
+            hexstring = rawframes[j * channels * sampwidth:(j + 1) * channels * sampwidth]
+            frame = 0
+            for c in range(channels):
+                currenthex = hexstring[c * sampwidth:(c + 1) * channels]
+                amplitude = decodeAudio(currenthex, 1, 0)
+                frame += amplitude/channels
+            frames.append(frame)
+        samples.append(frames)
 
     f.close()
 
+    return samples
+
 
 def process(data):
-    pass
+    all_data = []
+    for sample in data:
+        x = numpy.array(sample)
+        y = np.abs(rfft(x))
+        all_data.append(y)
+
+    return all_data
+
 
 def main():
     # Get input/output filenames from input:

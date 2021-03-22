@@ -39,22 +39,29 @@ def hexToBinary(hex):
     return binarr
 
 def binaryToDenary(bin, signed, endianness):
-    # Reverse if binary string is big endian
-    # Big endian: endianness = 1
-    # Little endian: endianness = 0
-    if endianness == 1:
-        bin = bin[::-1]
 
-    # Go through binary array
-    i = 0
-    sum = 0
-    while i < len(bin) - 1:
-        sum += bin[i] * math.pow(2, i)
-        i += 1
+    # Encapsulate code in if statement to ensure bin array has elements
+    if (len(bin) > 0):
 
-    if signed == 1:
-        sum -= bin[i] * math.pow(2, i)
+        # Reverse if binary string is big endian
+        # Big endian: endianness = 1
+        # Little endian: endianness = 0
+        if endianness == 1:
+            bin = bin[::-1]
+
+        # Go through binary array
+        i = 0
+        sum = 0
+        while i < len(bin) - 1:
+            sum += bin[i] * math.pow(2, i)
+            i += 1
+
+        # Check if signed/modify accordingly
+        if signed == 1:
+            sum -= bin[i] * math.pow(2, i)
+        else:
+            sum += bin[i] * math.pow(2, i)
+
     else:
-        sum += bin[i] * math.pow(2, i)
-
+        sum = 0
     return sum

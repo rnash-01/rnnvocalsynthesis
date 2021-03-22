@@ -15,6 +15,8 @@
 # gt = global total for all tests (defined globally)
 # gs = global score for all tests (defined globally)
 
+import traceback
+
 total = 0
 score = 0
 gt = 0
@@ -45,8 +47,17 @@ def finishtest():
     printscore()
     #print(gt, gs)
 
+def startTest(fname):
+    reset()
+    print("========================================")
+    print("Testing function: " + fname + "()")
+    print("========================================")
+
+
 def printerror(e):
     print("================= ERROR ================")
+    track = traceback.format_exc()
+    print(track)
     print(e)
     print("========================================")
 
