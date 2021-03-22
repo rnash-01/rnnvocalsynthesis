@@ -84,7 +84,6 @@ def process(data):
 
     return all_data
 
-
 def main():
     # Get input/output filenames from input:
     if not TEST:
