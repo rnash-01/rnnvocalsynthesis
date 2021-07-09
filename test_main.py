@@ -31,7 +31,7 @@ def t_process():
     print("Test 1")
     it()
     try:
-        frames = getAudio(0, "test_audio.wav")
+        frames = getAudio(0, "tone.wav")
         process(frames)
     except Exception as e:
         print("Failed")

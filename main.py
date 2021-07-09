@@ -13,17 +13,24 @@ from scipy.fft import rfft, rfftfreq
 import rnn, wave, numpy, math
 from dataconversion import *
 import numpy as np
-from matplotlib import pyplot as plt
 
 ################################################################################
 
 #                          # GLOBAL CONSTANTS #                            #
+
+TEST = True
 
 SAMPLE_SIZE = 0  # How large a given audio sample will be. Max size.
 
 # How large the input layer will be/how many frequency bands will be passed
 # into it.
 INPUT_SIZE = 0
+
+# A few parameters for the storage of frequency data
+START_FREQ = 200
+STOP_FREQ = 15000
+INTERVAL = 50
+
 
 # The name of the voice (example, for the time being):
 VNAME = "borisjohnson"
@@ -39,7 +46,7 @@ def getFname(type):
 def decodeAudio(hexstring, signed, endianness):
     return binaryToDenary(hexToBinary(hexstring), signed, endianness)
 
-def encodeAudio():
+def encodeAudio(frequencies):
     pass
 
 def getAudio(intype, fname):
@@ -52,7 +59,7 @@ def getAudio(intype, fname):
     n = f.getnframes()                  # Total number of frames
 
     # Create some of my own parameters
-    sampsize = framerates               # Frames per sample
+    sampsize = int(framerate * 0.25)    # Frames per sample
     readlim = math.ceil(n/sampsize)     # Number of samples we'll read
 
     # Read in all data into samples
@@ -72,17 +79,20 @@ def getAudio(intype, fname):
 
     f.close()
 
-    return samples
+    return samples, framerate
 
-
-def process(data):
-    all_data = []
+def process(data, samp_rate):
+    freq_data = []
     for sample in data:
-        x = numpy.array(sample)
-        y = np.abs(rfft(x))
-        all_data.append(y)
+        y = numpy.array(sample)
+        yf = np.abs(rfft(y))
+        freqs = []
+        for i in range(START_FREQ, STOP_FREQ, INTERVAL):
+            freq_index = int(i * len(sample) * (1/samp_rate))
+            freqs.append(yf[freq_index])
+        freq_data.append(freqs)
 
-    return all_data
+    return freq_data
 
 def main():
     # Get input/output filenames from input:
@@ -90,27 +100,19 @@ def main():
         infname = getFname("input file")
         outfname = getFname("output file")
     else:
-        infname = "me.wav"
+        infname = "test_input.wav"
         outfname = "{0}.wav".format(VNAME)
 
     # Take in audio as input
     # getAudio (file/live = 0/1, fname)
-    indata = getAudio(0, SAMPLE_SIZE, infname)
+    indata, samp_rate_input = getAudio(0, infname)
+    infdata = process(indata, samp_rate_input)
 
     # Take in audio as comparison output (the 'actual output' to compute loss)
-    outdata = getAudio(0, SAMPLE_SIZE, outfname)
+    #outdata, samp_rate_output = getAudio(0, outfname)
+    #outfdata = process(outfdata, samp_rate_output)
 
-    # Process data, and convert into series of arrays containing the
-    # values of frequency bands for each sample:
-    # [[20Hz, 40Hz, ... 4000Hz], [20Hz, 40Hz, ... 4000Hz], ...]
-    # ('x'Hz represents the value of the FFT at 'x'Hz, not simply the frequency
-    # itself).
-    infdata = process(indata, SAMPLE_SIZE)
-    outfdata = process(outfdata, SAMPLE_SIZE)
+    print(infdata[0])
+    print(len(infdata[0]))
 
-    # Train Neural Network on frequency data
-    converter = rnn.MyRNN()
-    converter.train(infdata, outfdata)
-
-    # Save network parameters
-    saveFile(converter, "{0}_params".format(VNAME))
+main()
