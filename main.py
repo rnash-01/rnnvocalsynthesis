@@ -13,7 +13,7 @@ from scipy.fft import rfft, rfftfreq
 import rnn, wave, numpy, math
 from dataconversion import *
 import numpy as np
-
+import time
 ################################################################################
 
 #                          # GLOBAL CONSTANTS #                            #
@@ -29,11 +29,11 @@ INPUT_SIZE = 0
 # A few parameters for the storage of frequency data
 START_FREQ = 200
 STOP_FREQ = 15000
-INTERVAL = 50
+INTERVAL = 100
 
 
 # The name of the voice (example, for the time being):
-VNAME = "borisjohnson"
+VNAME = "test"
 
 ################################################################################
 def getFname(type):
@@ -53,6 +53,7 @@ def getAudio(intype, fname):
     f = wave.open(fname, 'rb')
 
     # Get some parameters of the file
+    allparams = f.getparams()
     channels = f.getnchannels()
     sampwidth = f.getsampwidth()        # Bytes per sample
     framerate = f.getframerate()        # Frames per second
@@ -79,7 +80,7 @@ def getAudio(intype, fname):
 
     f.close()
 
-    return samples, framerate
+    return samples, framerate, allparams
 
 def process(data, samp_rate):
     freq_data = []
@@ -94,6 +95,40 @@ def process(data, samp_rate):
 
     return freq_data
 
+def deprocess(data, samp_rate):
+    sample_data = []
+    freq = 0
+    print("number of samples: {0}".format(len(data)))
+    print("length of first sample: {0}".format(len(data[0])))
+    for freqs in data:
+        current_sample = np.zeros(samp_rate)
+        for i in range(len(freqs)):
+            freq = START_FREQ + (i * INTERVAL)
+            amplitude = freqs[i]
+            x_vals = np.arange(samp_rate).reshape(samp_rate)
+            current_sample = current_sample + amplitude * np.sin(x_vals * freq)
+        print("done frequency: {0}".format(freq))
+        sample_data.append(current_sample)
+    return sample_data
+
+def outAudio(mode, fname, params, data):
+    # open wav file for writing
+    f = wave.open(fname, mode='wb')
+    f.setparams(params)
+    f.setnframes(0)
+
+    sampwidth = f.getsampwidth()
+    # loop through samples
+    for sample in data:
+        for frame in sample:
+            binframe = denaryToBinary(frame, 0, sampwidth)
+            hexframe = binaryToHex(binframe)
+            f.writeframesraw(hexframe)
+    # decode each sample
+    # write decoded sample to file
+    # close file
+    f.close()
+
 def main():
     # Get input/output filenames from input:
     if not TEST:
@@ -105,14 +140,31 @@ def main():
 
     # Take in audio as input
     # getAudio (file/live = 0/1, fname)
-    indata, samp_rate_input = getAudio(0, infname)
-    infdata = process(indata, samp_rate_input)
+    print("getting audio")
+    t1 = time.time()
+    indata, samp_rate_input, params = getAudio(0, infname)
+    t2 = time.time()
+    print("audio taken in: {0}ms".format(t2 - t1))
 
+    print("processing audio")
+    t1 = time.time()
+    infdata = process(indata, samp_rate_input)
+    t2 = time.time()
+    print("done: {0}ms".format(t2 - t1))
+
+    print("deprocessing audio")
+    t1 = time.time()
+    outfdata = deprocess(infdata, samp_rate_input)
+    t2 = time.time()
+    print("done: {0}ms".format(t2-t1))
+
+    print("outputting audio")
+    t1 = time.time()
+    outAudio(0, outfname, params, outfdata)
+    t2 = time.time()
+    print("done: {0}ms".format(t2-t1))
     # Take in audio as comparison output (the 'actual output' to compute loss)
     #outdata, samp_rate_output = getAudio(0, outfname)
     #outfdata = process(outfdata, samp_rate_output)
-
-    print(infdata[0])
-    print(len(infdata[0]))
 
 main()

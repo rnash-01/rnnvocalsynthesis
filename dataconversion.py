@@ -12,6 +12,7 @@
 
 from scipy.fft import fft
 import math
+import numpy as np
 
 ################################################################################
 
@@ -65,3 +66,46 @@ def binaryToDenary(bin, signed, endianness):
     else:
         sum = 0
     return sum
+
+def denaryToBinary(n, endianness, bytes):
+    binarr = []
+    absn = abs(n)
+    if (n >= 0):
+        for i in range(bytes * 8, 0, -1):
+            if absn >= np.power(2, i - 1):
+                absn -= np.power(2, i - 1)
+                binarr.append(1)
+            else:
+                binarr.append(0)
+    elif n < 0:
+        binarr.append(1)
+        runsum = - np.power(2, bytes * 8 - 1)
+        for i in range(bytes * 8 - 1, 0, -1):
+            if (n >= runsum + np.power(2, i - 1)):
+                binarr.append(1)
+                runsum += np.power(2, i - 1)
+            else:
+                binarr.append(0)
+    if (endianness == 0):
+        binarr.reverse()
+
+    return binarr
+
+def binaryToHex(bin):
+    hexstring = ""
+    if (len(bin)/8 != len(bin)//8):
+        return 0
+    else:
+        vals = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f']
+        for i in range(len(bin)//8):
+            ind = 0
+            for j in range(4):
+                ind += np.power(2, 3 - j) * bin[i * 8 + j]
+            hexstring += vals[ind]
+
+            ind = 0
+            for j in range(4):
+                ind += np.power(2, 3 - j) * bin[i * 8 + 4 + j]
+            hexstring += vals[ind]
+    bytearr = bytearray.fromhex(hexstring)
+    return bytearr

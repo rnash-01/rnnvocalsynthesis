@@ -232,15 +232,16 @@ class LSTM:
 
                     j += 1
 
+                count = x_data.shape[1] / math.ceil(time_size)
                 newgrads = self.calc_gradients(states, forgets, adds, cstate_outs, filtered_outputs, outputs, inputs, true_outs, hiddens)
+
                 for key in grads.keys():
                     oldgrad = grads[key]
                     newgrad = newgrads[key]
-                    grads[key] = oldgrad + newgrad
+                    grads[key] = oldgrad + newgrad / count
 
-                #print(grads["dWf"])
-                #self.calc_gradients(concat_inputs, states, forgets, adds, cstate_outs, filtered_outputs, outputs, cost)
                 i += 1
+
             self.optimize_parameters(grads, learning_rate)
 
     def reset_state(self):
@@ -251,6 +252,7 @@ class LSTM:
 
     def predict(self, x):
         predictions = 0
+
         if(x.shape[0] != self.input_size):
             print("Could not predict - size of given input ({0}) does not match network input size ({1})".format(x.shape[0], self.input_size))
             return 0
@@ -271,12 +273,5 @@ class LSTM:
                     predictions = self.output
                 else:
                     predictions = np.append(predictions, self.output, axis=1)
+
         return predictions
-
-test = LSTM(10, 10)
-x_data = np.random.uniform(-10, 10, (10, 50))
-y_data = np.random.randint(0, 2, (10, 50))
-
-test.train(x_data, y_data, 50, 0.01, 100)
-y = test.predict(np.random.uniform(-10, 10, (10, 1)))
-print(y)
