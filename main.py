@@ -118,12 +118,14 @@ def outAudio(mode, fname, params, data):
     f.setnframes(0)
 
     sampwidth = f.getsampwidth()
+    channels = f.getnchannels()
     # loop through samples
     for sample in data:
         for frame in sample:
             binframe = denaryToBinary(frame, 0, sampwidth)
             hexframe = binaryToHex(binframe)
-            f.writeframesraw(hexframe)
+            for i in range(channels):
+                f.writeframesraw(hexframe)
     # decode each sample
     # write decoded sample to file
     # close file
@@ -160,7 +162,7 @@ def main():
 
     print("outputting audio")
     t1 = time.time()
-    outAudio(0, outfname, params, outfdata)
+    outAudio(0, outfname, params, indata)
     t2 = time.time()
     print("done: {0}ms".format(t2-t1))
     # Take in audio as comparison output (the 'actual output' to compute loss)
