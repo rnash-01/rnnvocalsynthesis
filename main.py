@@ -68,16 +68,17 @@ def getAudio(intype, fname):
     for i in range(readlim):
         rawframes = f.readframes(sampsize).hex()
         frames = []
-        for j in range(len(rawframes) - 1):
-            hexstring = rawframes[j * channels * sampwidth:(j + 1) * channels * sampwidth]
-            frame = 0
+        for j in range(len(rawframes)//(channels * sampwidth * 2)):
+            hexstring = rawframes[j * channels * sampwidth * 2:(j + 1) * channels * sampwidth * 2]
+            frame = []
             for c in range(channels):
-                currenthex = hexstring[c * sampwidth:(c + 1) * channels]
+                currenthex = hexstring[c * sampwidth * 2:(c + 1) * sampwidth * 2]
                 amplitude = decodeAudio(currenthex, 1, 0)
-                frame += amplitude/channels
+                frame.append(amplitude)
+            if(frame[0] == 0 and frame[1] == 0):
+                print(currenthex)
             frames.append(frame)
         samples.append(frames)
-
     f.close()
 
     return samples, framerate, allparams
@@ -120,12 +121,19 @@ def outAudio(mode, fname, params, data):
     sampwidth = f.getsampwidth()
     channels = f.getnchannels()
     # loop through samples
+    firstit = 0
+    k = 0
     for sample in data:
         for frame in sample:
-            binframe = denaryToBinary(frame, 0, sampwidth)
-            hexframe = binaryToHex(binframe)
+            newframe = bytearray()
             for i in range(channels):
-                f.writeframesraw(hexframe)
+                channel_aud = frame[i]
+                binframe = denaryToBinary(channel_aud, 0, sampwidth)
+                hexframe = binaryToHex(binframe)
+
+                newframe.extend(hexframe)
+
+            f.writeframes(newframe)
     # decode each sample
     # write decoded sample to file
     # close file
@@ -150,13 +158,13 @@ def main():
 
     print("processing audio")
     t1 = time.time()
-    infdata = process(indata, samp_rate_input)
+    #infdata = process(indata, samp_rate_input)
     t2 = time.time()
     print("done: {0}ms".format(t2 - t1))
 
     print("deprocessing audio")
     t1 = time.time()
-    outfdata = deprocess(infdata, samp_rate_input)
+    #outfdata = deprocess(infdata, samp_rate_input)
     t2 = time.time()
     print("done: {0}ms".format(t2-t1))
 
