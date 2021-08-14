@@ -21,7 +21,7 @@ def hexStringToArr(hexString):
     return [c for c in hexString]
 
 
-def hexToBinary(hex):
+def hexToBinary(hex, endianness):
     binarr = []
     hexMap = {'a':10, 'b':11, 'c':12, 'd':13, 'e':14, 'f':15}
     for i in range(len(hex)):
@@ -37,18 +37,16 @@ def hexToBinary(hex):
             else:
                 binarr.append(0)
             j -= 1
+    # Big endian: endianness = 0
+    # Little endian: endianness = 1
+    if(endianness == 1):
+        binarr = binarr[::-1]
     return binarr
 
-def binaryToDenary(bin, signed, endianness):
-
+def binaryToDenary(bin, signed):
     # Encapsulate code in if statement to ensure bin array has elements
     if (len(bin) > 0):
-
         # Reverse if binary string is big endian
-        # Big endian: endianness = 1
-        # Little endian: endianness = 0
-        if endianness == 1:
-            bin = bin[::-1]
 
         # Go through binary array
         i = 0
@@ -69,6 +67,7 @@ def binaryToDenary(bin, signed, endianness):
 
 def denaryToBinary(n, endianness, bytes):
     binarr = []
+    n = int(n)
     absn = abs(n)
     if (n >= 0):
         for i in range(bytes * 8, 0, -1):
@@ -79,33 +78,39 @@ def denaryToBinary(n, endianness, bytes):
                 binarr.append(0)
     elif n < 0:
         binarr.append(1)
-        runsum = - np.power(2, bytes * 8 - 1)
+        runsum = -np.power(2, bytes * 8 - 1)
         for i in range(bytes * 8 - 1, 0, -1):
             if (n >= runsum + np.power(2, i - 1)):
                 binarr.append(1)
                 runsum += np.power(2, i - 1)
             else:
                 binarr.append(0)
-    if (endianness == 0):
-        binarr.reverse()
+
+    if (endianness == 1):
+        binarr = binarr[::-1]
+        new_bin = []
+        for i in range(len(binarr)//8):
+            bin_i = binarr[i*8:(i+1)*8]
+            new_bin += bin_i[::-1]
+
+        binarr = new_bin
 
     return binarr
 
-def binaryToHex(bin):
+def binaryToHex(bin, p):
     hexstring = ""
     if (len(bin)/8 != len(bin)//8):
         return 0
     else:
         vals = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f']
         for i in range(len(bin)//8):
-            ind = 0
-            for j in range(4):
-                ind += np.power(2, 3 - j) * bin[i * 8 + j]
-            hexstring += vals[ind]
+            for k in range(2):
+                ind = 0
+                for j in range(4):
+                    ind += np.power(2, 3-j) * bin[i * 8 + (k * 4) + j]
+                hexstring += vals[ind]
+    if(p):
+        print(hexstring)
 
-            ind = 0
-            for j in range(4):
-                ind += np.power(2, 3 - j) * bin[i * 8 + 4 + j]
-            hexstring += vals[ind]
     bytearr = bytearray.fromhex(hexstring)
     return bytearr

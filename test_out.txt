@@ -1,0 +1,9 @@
+getting audio
+[1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0]
+1d09 2333.0
+audio taken in: 0.6779570579528809ms
+_wave_params(nchannels=1, sampwidth=2, framerate=44100, nframes=44100, comptype='NONE', compname='not compressed')
+1d09
+2333.0
+[0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1]
+bytearray(b'\x1d\t')

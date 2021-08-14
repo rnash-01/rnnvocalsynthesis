@@ -9,9 +9,10 @@
 ################################################################################
 
 #                              # IMPORTS #                                 #
-from scipy.fft import rfft, rfftfreq
+from scipy.fft import rfft, rfftfreq, irfft
 import rnn, wave, numpy, math
 from dataconversion import *
+import matplotlib.pyplot as plt
 import numpy as np
 import time
 ################################################################################
@@ -27,10 +28,10 @@ SAMPLE_SIZE = 0  # How large a given audio sample will be. Max size.
 INPUT_SIZE = 0
 
 # A few parameters for the storage of frequency data
-START_FREQ = 200
-STOP_FREQ = 15000
+START_FREQ = 100
+STOP_FREQ = 1000
 INTERVAL = 100
-
+MAX_AMP = 1
 
 # The name of the voice (example, for the time being):
 VNAME = "test"
@@ -43,13 +44,22 @@ def getFname(type):
 
     return name
 
-def decodeAudio(hexstring, signed, endianness):
-    return binaryToDenary(hexToBinary(hexstring), signed, endianness)
+def decodeAudio(hexstring, signed, endianness, p):
+    binarr = []
+    for i in range(len(hexstring)//2):
+        currenthex = hexstring[(i*2):(i*2)+2]
+        binarr += hexToBinary(currenthex, endianness)
+    if p:
+        print(binarr)
+    return binaryToDenary(binarr, signed)
+
+
 
 def encodeAudio(frequencies):
     pass
 
 def getAudio(intype, fname):
+    global MAX_AMP
     f = wave.open(fname, 'rb')
 
     # Get some parameters of the file
@@ -70,70 +80,63 @@ def getAudio(intype, fname):
         frames = []
         for j in range(len(rawframes)//(channels * sampwidth * 2)):
             hexstring = rawframes[j * channels * sampwidth * 2:(j + 1) * channels * sampwidth * 2]
-            frame = []
-            for c in range(channels):
-                currenthex = hexstring[c * sampwidth * 2:(c + 1) * sampwidth * 2]
-                amplitude = decodeAudio(currenthex, 1, 0)
-                frame.append(amplitude)
-            if(frame[0] == 0 and frame[1] == 0):
-                print(currenthex)
-            frames.append(frame)
+            currenthex = hexstring[0:sampwidth * 2]
+            if(i==0 and j == 1):
+                amplitude = decodeAudio(currenthex, 1, 1, 1)
+                print(currenthex, amplitude)
+            else:
+                amplitude = decodeAudio(currenthex, 1, 1, 0)
+
+            if(amplitude > MAX_AMP):
+                MAX_AMP = amplitude
+            frames.append(amplitude)
         samples.append(frames)
     f.close()
-
     return samples, framerate, allparams
 
 def process(data, samp_rate):
     freq_data = []
+    print(data[0][0])
     for sample in data:
         y = numpy.array(sample)
-        yf = np.abs(rfft(y))
-        freqs = []
-        for i in range(START_FREQ, STOP_FREQ, INTERVAL):
-            freq_index = int(i * len(sample) * (1/samp_rate))
-            freqs.append(yf[freq_index])
-        freq_data.append(freqs)
+        yf = np.absolute(rfft(y))
+        freq_data.append(yf)
 
     return freq_data
 
-def deprocess(data, samp_rate):
-    sample_data = []
-    freq = 0
-    print("number of samples: {0}".format(len(data)))
-    print("length of first sample: {0}".format(len(data[0])))
-    for freqs in data:
-        current_sample = np.zeros(samp_rate)
-        for i in range(len(freqs)):
-            freq = START_FREQ + (i * INTERVAL)
-            amplitude = freqs[i]
-            x_vals = np.arange(samp_rate).reshape(samp_rate)
-            current_sample = current_sample + amplitude * np.sin(x_vals * freq)
-        print("done frequency: {0}".format(freq))
-        sample_data.append(current_sample)
-    return sample_data
+def deprocess(data):
+    new_aud = []
+    for sample in data:
+        new_aud.append(irfft(sample))
+    print(new_aud[0][0])
+    return new_aud
+
+
 
 def outAudio(mode, fname, params, data):
     # open wav file for writing
     f = wave.open(fname, mode='wb')
     f.setparams(params)
+    print(params)
     f.setnframes(0)
 
     sampwidth = f.getsampwidth()
-    channels = f.getnchannels()
+    f.setnchannels(1)
     # loop through samples
     firstit = 0
     k = 0
     for sample in data:
         for frame in sample:
-            newframe = bytearray()
-            for i in range(channels):
-                channel_aud = frame[i]
-                binframe = denaryToBinary(channel_aud, 0, sampwidth)
-                hexframe = binaryToHex(binframe)
-
-                newframe.extend(hexframe)
-
-            f.writeframes(newframe)
+            binframe = denaryToBinary(frame, 1, sampwidth)
+            if(k == 1):
+                hexframe = binaryToHex(binframe, 1)
+                print(frame)
+                print(binframe)
+                print(hexframe)
+            else:
+                hexframe = binaryToHex(binframe, 0)
+            k += 1
+            f.writeframes(hexframe)
     # decode each sample
     # write decoded sample to file
     # close file
@@ -145,34 +148,38 @@ def main():
         infname = getFname("input file")
         outfname = getFname("output file")
     else:
-        infname = "test_input.wav"
+        infname = "tone.wav"
         outfname = "{0}.wav".format(VNAME)
 
     # Take in audio as input
     # getAudio (file/live = 0/1, fname)
     print("getting audio")
     t1 = time.time()
-    indata, samp_rate_input, params = getAudio(0, infname)
+    indata, samp_rate_input, params_in = getAudio(0, infname)
     t2 = time.time()
     print("audio taken in: {0}ms".format(t2 - t1))
 
-    print("processing audio")
-    t1 = time.time()
+    x = np.arange(0, len(indata[0]), 1)
+    plt.plot(x, indata[0])
+    plt.show()
+    #print("processing audio")
+    #t1 = time.time()
     #infdata = process(indata, samp_rate_input)
-    t2 = time.time()
-    print("done: {0}ms".format(t2 - t1))
+    #t2 = time.time()
+    #print("done: {0}ms".format(t2 - t1))
 
-    print("deprocessing audio")
-    t1 = time.time()
-    #outfdata = deprocess(infdata, samp_rate_input)
-    t2 = time.time()
-    print("done: {0}ms".format(t2-t1))
+    #print("deprocessing audio")
+    #t1 = time.time()
+    #f_samp_width = params_in[1]
+    #outfdata = deprocess(infdata)
+    #t2 = time.time()
+    #print("done: {0}ms".format(t2-t1))
 
-    print("outputting audio")
-    t1 = time.time()
-    outAudio(0, outfname, params, indata)
-    t2 = time.time()
-    print("done: {0}ms".format(t2-t1))
+    #print("outputting audio")
+    #t1 = time.time()
+    outAudio(0, outfname, params_in, indata)
+    #t2 = time.time()
+    #print("done: {0}ms".format(t2-t1))
     # Take in audio as comparison output (the 'actual output' to compute loss)
     #outdata, samp_rate_output = getAudio(0, outfname)
     #outfdata = process(outfdata, samp_rate_output)
