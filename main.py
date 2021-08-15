@@ -21,17 +21,16 @@ import time
 
 TEST = True
 
-SAMPLE_SIZE = 0  # How large a given audio sample will be. Max size.
-
 # How large the input layer will be/how many frequency bands will be passed
 # into it.
 INPUT_SIZE = 0
 
-# A few parameters for the storage of frequency data
-START_FREQ = 100
-STOP_FREQ = 1000
-INTERVAL = 100
 MAX_AMP = 1
+
+# Fourier Offset - ensure that each sample subject to a fourier transform
+# transitions smoothly from the previous
+# (update to be 1/8 of sample size)
+f_offset = 0
 
 # The name of the voice (example, for the time being):
 VNAME = "test"
@@ -53,8 +52,6 @@ def decodeAudio(hexstring, signed, endianness, p):
         print(binarr)
     return binaryToDenary(binarr, signed)
 
-
-
 def encodeAudio(frequencies):
     pass
 
@@ -70,7 +67,7 @@ def getAudio(intype, fname):
     n = f.getnframes()                  # Total number of frames
 
     # Create some of my own parameters
-    sampsize = int(framerate * 0.25)    # Frames per sample
+    sampsize = int(framerate * 0.1)    # Frames per sample
     readlim = math.ceil(n/sampsize)     # Number of samples we'll read
 
     # Read in all data into samples
@@ -94,24 +91,30 @@ def getAudio(intype, fname):
     f.close()
     return samples, framerate, allparams
 
-def process(data, samp_rate):
+def process(data, samp_size):
     freq_data = []
-    print(data[0][0])
-    for sample in data:
+
+    # NOTES
+    # Goal of this rewrite is to process the data, but offsetting each sample
+    # so that there is an overlap between one sample and the next.
+    # The next step from here will be to translate this step in the 'deprocess'
+    # function so that the overlaps are written correctly to a file.
+    for i in range(math.ceil(data/samp_size)):
+        sample = data[i]
+
+    """for sample in data:
         y = numpy.array(sample)
         yf = np.absolute(rfft(y))
         freq_data.append(yf)
 
-    return freq_data
+    return freq_data"""
 
 def deprocess(data):
     new_aud = []
     for sample in data:
         new_aud.append(irfft(sample))
-    print(new_aud[0][0])
+
     return new_aud
-
-
 
 def outAudio(mode, fname, params, data):
     # open wav file for writing
@@ -148,7 +151,7 @@ def main():
         infname = getFname("input file")
         outfname = getFname("output file")
     else:
-        infname = "tone.wav"
+        infname = "test_input.wav"
         outfname = "{0}.wav".format(VNAME)
 
     # Take in audio as input
@@ -159,25 +162,28 @@ def main():
     t2 = time.time()
     print("audio taken in: {0}ms".format(t2 - t1))
 
+    samp_size = indata[0]
+
     x = np.arange(0, len(indata[0]), 1)
     plt.plot(x, indata[0])
     plt.show()
     #print("processing audio")
     #t1 = time.time()
-    #infdata = process(indata, samp_rate_input)
+    infdata = process(indata, samp_size)
     #t2 = time.time()
     #print("done: {0}ms".format(t2 - t1))
 
     #print("deprocessing audio")
     #t1 = time.time()
-    #f_samp_width = params_in[1]
-    #outfdata = deprocess(infdata)
+    f_samp_width = params_in[1]
+    outfdata = deprocess(infdata)
+
     #t2 = time.time()
     #print("done: {0}ms".format(t2-t1))
 
     #print("outputting audio")
     #t1 = time.time()
-    outAudio(0, outfname, params_in, indata)
+    outAudio(0, outfname, params_in, outfdata)
     #t2 = time.time()
     #print("done: {0}ms".format(t2-t1))
     # Take in audio as comparison output (the 'actual output' to compute loss)
