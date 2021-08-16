@@ -30,10 +30,10 @@ MAX_AMP = 1
 # Fourier Offset - ensure that each sample subject to a fourier transform
 # transitions smoothly from the previous
 # (update to be 1/8 of sample size)
-f_offset = 0
+f_offset = 1
 
 # The name of the voice (example, for the time being):
-VNAME = "test"
+VNAME = "test" + str(f_offset)
 
 ################################################################################
 def getFname(type):
@@ -72,49 +72,44 @@ def getAudio(intype, fname):
 
     # Read in all data into samples
     samples = []  # All samples
-    for i in range(readlim):
-        rawframes = f.readframes(sampsize).hex()
-        frames = []
-        for j in range(len(rawframes)//(channels * sampwidth * 2)):
-            hexstring = rawframes[j * channels * sampwidth * 2:(j + 1) * channels * sampwidth * 2]
-            currenthex = hexstring[0:sampwidth * 2]
-            if(i==0 and j == 1):
-                amplitude = decodeAudio(currenthex, 1, 1, 1)
-                print(currenthex, amplitude)
-            else:
-                amplitude = decodeAudio(currenthex, 1, 1, 0)
 
-            if(amplitude > MAX_AMP):
-                MAX_AMP = amplitude
-            frames.append(amplitude)
-        samples.append(frames)
+    rawframes = f.readframes(n).hex()
+    frames = []
+    for j in range(len(rawframes)//(channels * sampwidth * 2)):
+        hexstring = rawframes[j * channels * sampwidth * 2:(j + 1) * channels * sampwidth * 2]
+        currenthex = hexstring[0:sampwidth * 2]
+        if(j == 1):
+            amplitude = decodeAudio(currenthex, 1, 1, 1)
+            print(currenthex, amplitude)
+        else:
+            amplitude = decodeAudio(currenthex, 1, 1, 0)
+
+        if(amplitude > MAX_AMP):
+            MAX_AMP = amplitude
+        frames.append(amplitude)
+    samples.append(frames)
     f.close()
     return samples, framerate, allparams
 
 def process(data, samp_size):
     freq_data = []
+    for i in range((len(data) - samp_size)//f_offset + 1):
+        if(samp_size + (i * f_offset) < len(data)):
+            sample = data[(i * f_offset):samp_size + (i * f_offset)]
+        else:
+            sample = data[(i*f_offset):len(data)]
 
-    # NOTES
-    # Goal of this rewrite is to process the data, but offsetting each sample
-    # so that there is an overlap between one sample and the next.
-    # The next step from here will be to translate this step in the 'deprocess'
-    # function so that the overlaps are written correctly to a file.
-    for i in range(math.ceil(data/samp_size)):
-        sample = data[i]
+        sample_fft = rfft(sample)
+        freq_data.append(np.abs(sample_fft))
 
-    """for sample in data:
-        y = numpy.array(sample)
-        yf = np.absolute(rfft(y))
-        freq_data.append(yf)
+    return freq_data
 
-    return freq_data"""
+def deprocess(data, samp_size):
+    new_samples = []
+    first = irfft(data[0])
 
-def deprocess(data):
-    new_aud = []
-    for sample in data:
-        new_aud.append(irfft(sample))
+    for i in range(1, len(data)):
 
-    return new_aud
 
 def outAudio(mode, fname, params, data):
     # open wav file for writing
