@@ -30,10 +30,12 @@ MAX_AMP = 1
 # Fourier Offset - ensure that each sample subject to a fourier transform
 # transitions smoothly from the previous
 # (update to be 1/8 of sample size)
-f_offset = 1
+GLOBAL_SAMP_SIZE = int(0.08 * 44100)
+merge = GLOBAL_SAMP_SIZE//2
+f_offset = GLOBAL_SAMP_SIZE - merge
 
 # The name of the voice (example, for the time being):
-VNAME = "test" + str(f_offset)
+VNAME = "test" + str(merge)
 
 ################################################################################
 def getFname(type):
@@ -74,7 +76,6 @@ def getAudio(intype, fname):
     samples = []  # All samples
 
     rawframes = f.readframes(n).hex()
-    frames = []
     for j in range(len(rawframes)//(channels * sampwidth * 2)):
         hexstring = rawframes[j * channels * sampwidth * 2:(j + 1) * channels * sampwidth * 2]
         currenthex = hexstring[0:sampwidth * 2]
@@ -86,14 +87,14 @@ def getAudio(intype, fname):
 
         if(amplitude > MAX_AMP):
             MAX_AMP = amplitude
-        frames.append(amplitude)
-    samples.append(frames)
+        samples.append(amplitude)
     f.close()
     return samples, framerate, allparams
 
 def process(data, samp_size):
     freq_data = []
-    for i in range((len(data) - samp_size)//f_offset + 1):
+
+    for i in range((len(data) - samp_size)//f_offset + 2):
         if(samp_size + (i * f_offset) < len(data)):
             sample = data[(i * f_offset):samp_size + (i * f_offset)]
         else:
@@ -104,12 +105,47 @@ def process(data, samp_size):
 
     return freq_data
 
-def deprocess(data, samp_size):
+def deprocess(data):
     new_samples = []
     first = irfft(data[0])
+    print(len(first), len(data[0]))
 
-    for i in range(1, len(data)):
+    # First sample to append:
+    new_samples = np.concatenate((new_samples, first))
+    samp_size = len(new_samples)
+    print(samp_size - f_offset)
 
+    lim = len(data)
+    for i in range(1, lim):
+        aud_data = irfft(data[i])
+        merge = aud_data[0:samp_size - f_offset]
+
+        plot = merge
+        x = np.arange(len(plot))
+
+        if(i == lim//2):
+            plt.plot(x, plot)
+            plt.plot(x, new_samples[(f_offset * i):(f_offset * (i-1) + samp_size)])
+
+        print((f_offset * i)/44100)
+        coeff_step = 1/(len(merge) + 1)
+
+        for j in range(len(merge)):
+            val = (1 - ((j + 1) * coeff_step)) * new_samples[(f_offset * i) + j] + ((j + 1) * coeff_step * merge[j])
+            new_samples[(f_offset * i) + j] = val
+
+        if(i == lim//2):
+            plt.plot(x, new_samples[(f_offset * i):(f_offset * (i-1) + samp_size)])
+            plt.title("t = " + str((f_offset * i)/44100))
+            plt.savefig("latest_plot.png")
+
+        non_merge = aud_data[samp_size - f_offset: samp_size]
+        print(non_merge[0]/new_samples[-1], new_samples[-1]/new_samples[-2])
+        new_samples = np.concatenate((new_samples, non_merge))
+
+        if(i == 1):
+            print(new_samples)
+    return new_samples
 
 def outAudio(mode, fname, params, data):
     # open wav file for writing
@@ -123,18 +159,18 @@ def outAudio(mode, fname, params, data):
     # loop through samples
     firstit = 0
     k = 0
-    for sample in data:
-        for frame in sample:
-            binframe = denaryToBinary(frame, 1, sampwidth)
-            if(k == 1):
-                hexframe = binaryToHex(binframe, 1)
-                print(frame)
-                print(binframe)
-                print(hexframe)
-            else:
-                hexframe = binaryToHex(binframe, 0)
-            k += 1
-            f.writeframes(hexframe)
+    print(len(data))
+    for frame in data:
+        binframe = denaryToBinary(frame, 1, sampwidth)
+        if(k == 1):
+            hexframe = binaryToHex(binframe, 1)
+            print(frame)
+            print(binframe)
+            print(hexframe)
+        else:
+            hexframe = binaryToHex(binframe, 0)
+        k += 1
+        f.writeframes(hexframe)
     # decode each sample
     # write decoded sample to file
     # close file
@@ -157,17 +193,16 @@ def main():
     t2 = time.time()
     print("audio taken in: {0}ms".format(t2 - t1))
 
-    samp_size = indata[0]
+    samp_size = GLOBAL_SAMP_SIZE
 
-    x = np.arange(0, len(indata[0]), 1)
-    plt.plot(x, indata[0])
-    plt.show()
+    #x = np.arange(0, len(indata), 1)
+    #plt.plot(x, indata)
+    #plt.show()
     #print("processing audio")
     #t1 = time.time()
     infdata = process(indata, samp_size)
     #t2 = time.time()
     #print("done: {0}ms".format(t2 - t1))
-
     #print("deprocessing audio")
     #t1 = time.time()
     f_samp_width = params_in[1]
