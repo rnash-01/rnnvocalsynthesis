@@ -1,6 +1,6 @@
 import numpy as np
 import math
-
+import matplotlib.pyplot as plt
 class LSTM:
     def __init__(self, input_size, output_size):
         # Basic layers
@@ -172,10 +172,13 @@ class LSTM:
         self.biases_cell = self.biases_cell - learning_rate * dbc
 
     def train(self, x_data, y_data, time_size, learning_rate, iterations):
+        iteration_axis = []
+        cost_axis = []
         for iteration in range(iterations):
+            iteration_axis.append(iteration)
             grads = {"dWf": 0, "dWa": 0, "dWo": 0, "dWc": 0, "dbf": 0, "dba": 0, "dbo": 0, "dbc": 0}
             i = 0
-            while i < math.ceil(len(x_data) / time_size):
+            while i < math.floor(len(x_data) / time_size):
                 # First, reset the cell state
                 self.cstate = np.zeros((self.internals_size, 1))
 
@@ -242,7 +245,15 @@ class LSTM:
 
                 i += 1
 
+            cost_axis.append(np.abs(1/j * np.sum(costs, axis=1)))
             self.optimize_parameters(grads, learning_rate)
+
+        plt.plot(iteration_axis, cost_axis)
+        plt.xlabel("Iteration Number")
+        plt.ylabel("Absolute loss")
+
+        plt.savefig("cost.png")
+        plt.show()
 
     def reset_state(self):
         self.input = np.zeros((input_size, 1))
@@ -275,3 +286,4 @@ class LSTM:
                     predictions = np.append(predictions, self.output, axis=1)
 
         return predictions
+    

@@ -19,7 +19,7 @@ import time
 
 #                          # GLOBAL CONSTANTS #                            #
 
-TEST = True
+TEST = False
 
 # How large the input layer will be/how many frequency bands will be passed
 # into it.
@@ -185,35 +185,52 @@ def main():
         infname = "test_input.wav"
         outfname = "{0}.wav".format(VNAME)
 
+    model = LSTM(GLOBAL_SAMP_SIZE, GLOBAL_SAMP_SIZE)
     # Take in audio as input
     # getAudio (file/live = 0/1, fname)
-    print("getting audio")
+    print("Getting comparable input audio")
     t1 = time.time()
     indata, samp_rate_input, params_in = getAudio(0, infname)
     t2 = time.time()
-    print("audio taken in: {0}ms".format(t2 - t1))
+    print("Audio taken in: {0}s".format(t2 - t1))
+
+    # Take in compared output
+    print("Getting comparable output audio")
+    t1 = time.time()
+    newvoicedata, samp_rate_newvoice, params_newvoice = getAudio(0, outfname)
+    t2 = time.time()
+    print("Audio taken in: {0}s".format(t2 - t1))
 
     samp_size = GLOBAL_SAMP_SIZE
 
-    #x = np.arange(0, len(indata), 1)
-    #plt.plot(x, indata)
-    #plt.show()
-    #print("processing audio")
-    #t1 = time.time()
+    print("Processing 'input' audio")
+    t1 = time.time()
     infdata = process(indata, samp_size)
-    #t2 = time.time()
-    #print("done: {0}ms".format(t2 - t1))
-    #print("deprocessing audio")
-    #t1 = time.time()
-    f_samp_width = params_in[1]
-    outfdata = deprocess(infdata)
+    t2 = time.time()
+    print("Input audio processed in {0}s".format(t2 - t1))
+
+    print("Processing 'output' audio")
+    t1 = time.time()
+    newvoicefdata = process(newvoicefdata, samp_size)
+    t2 = time.time()
+    print("Output audio processed in {0}s".format(t2 - t1))
+
+    print("Commencing RNN training")
+    t1 = time.time()
+    model.train(infdata, newvoicefdata, 11025, 0.1, 1000)
+    t2 = time.time()
+    print("Time taken: {0}s".format(t2 - t1))
+    print("Done. :)")
+
+    #f_samp_width = params_in[1]
+    #outfdata = deprocess(infdata)
 
     #t2 = time.time()
     #print("done: {0}ms".format(t2-t1))
 
     #print("outputting audio")
     #t1 = time.time()
-    outAudio(0, outfname, params_in, outfdata)
+    #outAudio(0, outfname, params_in, outfdata)
     #t2 = time.time()
     #print("done: {0}ms".format(t2-t1))
     # Take in audio as comparison output (the 'actual output' to compute loss)
