@@ -15,11 +15,12 @@ from dataconversion import *
 import matplotlib.pyplot as plt
 import numpy as np
 import time
+from LSTM import LSTM
 ################################################################################
 
 #                          # GLOBAL CONSTANTS #                            #
 
-TEST = False
+TEST = True
 
 # How large the input layer will be/how many frequency bands will be passed
 # into it.
@@ -39,9 +40,7 @@ VNAME = "test" + str(merge)
 
 ################################################################################
 def getFname(type):
-    #name = input("Please enter the name of {0}: ".format(type))
-
-    # ** Write validation checks here **
+    name = input("Please enter the name of {0}: ".format(type))
 
     return name
 
@@ -76,7 +75,8 @@ def getAudio(intype, fname):
     samples = []  # All samples
 
     rawframes = f.readframes(n).hex()
-    for j in range(len(rawframes)//(channels * sampwidth * 2)):
+    #for j in range(len(rawframes)//(channels * sampwidth * 2)):
+    for j in range(44100):
         hexstring = rawframes[j * channels * sampwidth * 2:(j + 1) * channels * sampwidth * 2]
         currenthex = hexstring[0:sampwidth * 2]
         if(j == 1):
@@ -101,7 +101,15 @@ def process(data, samp_size):
             sample = data[(i*f_offset):len(data)]
 
         sample_fft = rfft(sample)
-        freq_data.append(np.abs(sample_fft))
+        if(i == 0):
+            freq_data = np.abs(sample_fft)
+            freq_data = np.reshape(freq_data, (-1, 1))
+            print(freq_data)
+        else:
+            freq_sample = np.reshape(np.abs(sample_fft), (-1, 1))
+            if(freq_sample.shape[0] == freq_data.shape[0]):
+                freq_data = np.append(freq_data, freq_sample, axis=1)
+
 
     return freq_data
 
@@ -182,10 +190,9 @@ def main():
         infname = getFname("input file")
         outfname = getFname("output file")
     else:
-        infname = "test_input.wav"
-        outfname = "{0}.wav".format(VNAME)
+        infname = "training/Raph_Nash.wav"
+        outfname = "training/Boris_Johnson.wav".format(VNAME)
 
-    model = LSTM(GLOBAL_SAMP_SIZE, GLOBAL_SAMP_SIZE)
     # Take in audio as input
     # getAudio (file/live = 0/1, fname)
     print("Getting comparable input audio")
@@ -203,6 +210,11 @@ def main():
 
     samp_size = GLOBAL_SAMP_SIZE
 
+    print("####################################")
+    print("Input audio len (frames): {0}".format(len(indata)))
+    print("Output audio len (frames): {0}".format(len(newvoicedata)))
+    print("####################################")
+
     print("Processing 'input' audio")
     t1 = time.time()
     infdata = process(indata, samp_size)
@@ -211,13 +223,31 @@ def main():
 
     print("Processing 'output' audio")
     t1 = time.time()
-    newvoicefdata = process(newvoicefdata, samp_size)
+    newvoicefdata = process(newvoicedata, samp_size)
     t2 = time.time()
     print("Output audio processed in {0}s".format(t2 - t1))
 
-    print("Commencing RNN training")
+    print("####################################")
+    print("Input frequency samples len: {0}".format(len(infdata)))
+    print("Output frequency samples len: {0}".format(len(newvoicefdata)))
+    print("####################################")
+
+    print("Normalizing input data (to avoid overflows)")
     t1 = time.time()
-    model.train(infdata, newvoicefdata, 11025, 0.1, 1000)
+    infdata = infdata/np.linalg.norm(infdata)
+    t2 = time.time()
+    print("Done: {0}s".format(t2 - t1))
+
+    print("Normalizing output data (to avoid overflows)")
+    t1 = time.time()
+    newvoicefdata = newvoicefdata/np.linalg.norm(newvoicefdata)
+    t2 = time.time()
+    print("Done: {0}s".format(t2 - t1))
+
+    print("Commencing RNN training")
+    model = LSTM(newvoicefdata.shape[0], newvoicefdata.shape[0])
+    t1 = time.time()
+    model.train(newvoicefdata, newvoicefdata, 20, 0.1, 200)
     t2 = time.time()
     print("Time taken: {0}s".format(t2 - t1))
     print("Done. :)")

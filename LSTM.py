@@ -32,7 +32,7 @@ class LSTM:
         return self.sigmoid(x) * (1 - self.sigmoid(x))
 
     def tanh_prime(self, x):
-        sech = 1 / (np.cosh(x))
+        sech = 1 / np.cosh(x)
         return np.square(sech)
 
     def forward_pass(self, x, y):
@@ -59,8 +59,6 @@ class LSTM:
 
         output = cstate_out_tanh * input_out_sigmoid
 
-        # Calculate error
-        error = np.zeros((self.internals_size, 1))
         # Remember current state of the network
         # (if training, these will be pushed to some array outside of this
         # function)
@@ -71,20 +69,15 @@ class LSTM:
         self.cstate_out = cstate_out
         self.input_out = input_out
         self.output = output
-        self.error = error
 
-        return output, error
-
-    def calc_cost(self, Yhat, Y):
-        loss = np.power((Y - Yhat), 2)
-        sum = np.sum(loss)/m
-        return np.squeeze(sum)
+        return output
 
     def calc_gradients(self, states, forgets, adds, cstate_outs, filtered_outputs, predictions, X_train, Y_train, hiddens):
         # Get everything for 'last' cell state and output
         count = predictions.shape[1]
+        #print(count)
         ht = predictions[:,-1].reshape(self.internals_size, 1)
-        dhtm1 = (2/count) * (Y_train[:,count - 1].reshape(self.internals_size, 1) - ht) #dh(t - 1) (but from the PREVIOUSLY evaluated cell)
+        dhtm1 = (-2/count) * (Y_train[:,count - 1].reshape(self.internals_size, 1) - ht) #dh(t - 1) (but from the PREVIOUSLY evaluated cell)
         dht = dhtm1
 
         # cell state
@@ -178,7 +171,9 @@ class LSTM:
             iteration_axis.append(iteration)
             grads = {"dWf": 0, "dWa": 0, "dWo": 0, "dWc": 0, "dbf": 0, "dba": 0, "dbo": 0, "dbc": 0}
             i = 0
-            while i < math.floor(len(x_data) / time_size):
+            j = 0
+            print(math.floor(x_data.shape[1]/time_size))
+            while i < math.floor(x_data.shape[1] / time_size):
                 # First, reset the cell state
                 self.cstate = np.zeros((self.internals_size, 1))
 
@@ -191,18 +186,14 @@ class LSTM:
                 cstates = []
                 cstate_outs = []
                 filtered_outputs = []
-                outputs = []
-                errors = []
-                cost = np.zeros((10, 1))
-                costs = np.empty((10, 1), dtype=int)
-                costs = np.append(costs, cost, axis=1)
-                costs = np.append(costs, np.random.randint(0, 2, (10, 1)), axis=1)
+                outputs = np.empty((self.internals_size, 1))
+                costs = []
 
                 # Complete forward pass for n=time_size time steps
                 j = 0
                 while (j < time_size) and ((i * time_size) + j) < x_data.shape[1]:
-                    x = x_data[:,(i * time_size) + j].reshape(10, 1)
-                    y = y_data[:,(i * time_size) + j].reshape(10, 1)
+                    x = x_data[:,(i * time_size) + j].reshape(x_data.shape[0], 1)
+                    y = y_data[:,(i * time_size) + j].reshape(y_data.shape[0], 1)
 
                     self.forward_pass(x, y)
                     if(j == 0):
@@ -216,8 +207,6 @@ class LSTM:
                         cstate_outs = self.cstate_out
                         filtered_outputs = self.input_out
                         outputs = self.output
-                        errors = self.error
-                        cost = np.zeros((10, 1))
                     else:
                         inputs = np.append(inputs, x, axis=1)
                         true_outs = np.append(true_outs, y, axis=1)
@@ -229,14 +218,16 @@ class LSTM:
                         cstate_outs = np.append(cstate_outs, self.cstate_out, axis=1)
                         filtered_outputs = np.append(filtered_outputs, self.input_out, axis=1)
                         outputs = np.append(outputs, self.output, axis=1)
-                        errors = np.append(errors, self.error, axis=1)
-                        cost = cost + self.error
-
 
                     j += 1
 
+
+                errors = (1/(true_outs.shape[0])) * (np.sum(np.square(true_outs - outputs), axis=0))
+                cost = (1/errors.shape[0]) * np.sum(errors)
                 count = x_data.shape[1] / math.ceil(time_size)
                 newgrads = self.calc_gradients(states, forgets, adds, cstate_outs, filtered_outputs, outputs, inputs, true_outs, hiddens)
+
+                costs.append(cost)
 
                 for key in grads.keys():
                     oldgrad = grads[key]
@@ -245,7 +236,8 @@ class LSTM:
 
                 i += 1
 
-            cost_axis.append(np.abs(1/j * np.sum(costs, axis=1)))
+            print(np.abs(1/i * np.sum(costs)))
+            cost_axis.append(cost)
             self.optimize_parameters(grads, learning_rate)
 
         plt.plot(iteration_axis, cost_axis)
@@ -286,4 +278,3 @@ class LSTM:
                     predictions = np.append(predictions, self.output, axis=1)
 
         return predictions
-    
