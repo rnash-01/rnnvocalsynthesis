@@ -15,6 +15,7 @@ class LSTM():
         # * input and 'previous' output concatenated together.
 
         # Weights
+
         self.weights_forget = np.random.randn(output_size, input_size + output_size)
         self.weights_in_gate = np.random.randn(output_size, input_size + output_size)
         self.weights_remember = np.random.randn(output_size, input_size + output_size)
@@ -25,6 +26,7 @@ class LSTM():
         self.biases_in_gate = np.zeros((output_size, 1))
         self.biases_remember = np.zeros((output_size, 1))
         self.biases_select = np.zeros((output_size, 1))
+
 
         # Additional state information
         self.pre_forget = np.zeros((output_size, 1)) # before sigmoid function
@@ -73,6 +75,52 @@ class LSTM():
             # Forget gate
             self.pre_forget = np.dot(self.weights_forget, self.input_and_output)
             self.forget = self.sigmoid(self.pre_forget)
+
+            self.state_multiplied = np.multiply(self.forget, self.state)
+
+            # Remember
+            self.pre_in_gate = np.dot(self.weights_in_gate, self.input_and_output)
+            self.in_gate = self.sigmoid(self.pre_in_gate)
+            self.pre_remember = np.dot(self.weights_remember, self.input_and_output)
+            self.remember = np.tanh(self.pre_remember)
+
+            self.state_added = self.state_multiplied + self.in_gate
+
+            # Select
+            self.state_tanh = np.tanh(self.state_added)
+            self.pre_select = np.dot(self.weights_select, self.input_and_output)
+            self.select = self.sigmoid(self.pre_select)
+
+            self.output = self.select * self.state_tanh
+
+            # Append to cache arrays
+            input_and_output.append(self.input_and_output)
+            pre_forget.append(self.pre_forget)
+            forget.append(self.forget)
+            pre_in_gate.append(self.pre_in_gate)
+            in_gate.append(self.in_gate)
+            pre_remember.append(self.pre_remember)
+            remember.append(self.remember)
+            pre_select.append(self.pre_select)
+            select.append(self.select)
+            state_multiplied.append(self.state_multiplied)
+            state_added.append(self.state_added)
+            state_tanh.append(self.state_tanh)
+            predictions.append(self.output)
+
+        cache["input_and_output"] = input_and_output
+        cache["pre_forget"] = pre_forget
+        cache["forget"] = forget
+        cache["pre_in_gate"] = pre_in_gate
+        cache["in_gate"] = in_gate
+        cache["pre_remember"] = pre_remember
+        cache["remember"] = remember
+        cache["pre_select"] = pre_select
+        cache["select"] = select
+        cache["state_multiplied"] = state_multiplied
+        cache["state_added"] = state_added
+        cache["state_tanh"] = state_tanh
+        cache["predictions"] = predictions
 
         return cache
 
@@ -145,8 +193,10 @@ class LSTM():
         # Now perform a forward pass each time through
         for i in range(iterations):
             cache = self.forward_pass(new_X, t)
+            gradients = self.calculate_gradients(new_Y, t, cache)
+            self.optimise_parameters(gradients)
 
-        # All states,
+
 
 test = LSTM(10, 5)
 X = np.random.randint(0, 10, (10, 6))
