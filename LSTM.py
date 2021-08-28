@@ -222,6 +222,9 @@ class LSTM():
             # Update dc_t
             dc_t = dc_t * forget_t
 
+            # Update dh_t
+            #dh_t = dp_s * 
+
         # Compile all gradients into one dictionary
         grads = {}
 
@@ -325,11 +328,15 @@ class LSTM():
             costs.append(cost)
             gradients = self.calculate_gradients(new_Y, t, cache)
             self.optimise_parameters(gradients, learning_rate)
+            self.output = np.zeros((self.output_size, 1))
+            self.state = np.zeros((self.output_size, 1))
             print("Iteration {0} complete".format(i + 1))
+
 
         iteration_axis = np.arange(stop=iterations)
         plt.plot(iteration_axis, costs)
-        plt.show()
+        plt.savefig("latest_cost.png")
+
 
     def predict(self, input):
         output = np.empty((input.shape[0], 0))
@@ -390,3 +397,12 @@ class LSTM():
                 line = f.readline()
                 i+=1
             self.parameters[param_key] = new_param
+
+test = LSTM(1, 1)
+X = np.array([[1],[2],[3],[4]]).T
+print(X)
+Y = X + 1
+print(Y)
+
+test.train(X, Y, 2, 0.01, 10000)
+print(test.predict(X))

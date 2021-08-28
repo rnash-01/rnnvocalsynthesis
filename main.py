@@ -93,7 +93,7 @@ def getAudio(intype, fname):
     return samples, framerate, allparams
 
 def process(data, samp_size):
-    freq_data = []
+    freq_data = np.array([])
 
     for i in range((len(data) - samp_size)//f_offset + 2):
         if(samp_size + (i * f_offset) < len(data)):
@@ -110,7 +110,6 @@ def process(data, samp_size):
             freq_sample = np.reshape(np.abs(sample_fft), (-1, 1))
             if(freq_sample.shape[0] == freq_data.shape[0]):
                 freq_data = np.append(freq_data, freq_sample, axis=1)
-
 
     return freq_data
 
@@ -185,7 +184,8 @@ def outAudio(mode, fname, params, data):
     # close file
     f.close()
 
-def main():
+
+def train():
     # Get input/output filenames from input:
     if not TEST:
         infname = getFname("input file")
@@ -242,6 +242,7 @@ def main():
 
     print("Normalizing output data (to avoid overflows)")
     t1 = time.time()
+    norm = np.linalg.norm(newvoicefdata)
     newvoicefdata = newvoicefdata/np.linalg.norm(newvoicefdata)
     t2 = time.time()
     print("Done: {0}s".format(t2 - t1))
@@ -252,12 +253,24 @@ def main():
     print("Commencing RNN training")
     model = LSTM(infdata.shape[0], newvoicefdata.shape[0])
     t1 = time.time()
-    model.train(infdata, newvoicefdata, 20, 0.1, 5)
+    model.train(infdata, newvoicefdata, 20, 0.1, 100)
+    t2 = time.time()
+    print("Trained in {0}s".format(t2-t1))
+    print("Saving parameters...")
+    t1 = time.time()
     model.save_parameters("boris_params.txt")
     t2 = time.time()
-    print("Time taken: {0}s".format(t2 - t1))
-    print("Done. :)")
+    print("Saved. Time taken: {0}s".format(t2 - t1))
 
+    print("Creating test output based on training input")
+    t1 = time.time()
+    test_out = model.predict(infdata) * norm
+    outdata = deprocess(test_out.T)
+    outAudio(0, "boris_train_out.wav", params_in, outdata)
+    t2 = time.time()
+    print("Done. Time taken {0}s".format(t2-t1))
+
+    print("All done! :)")
     #f_samp_width = params_in[1]
     #outfdata = deprocess(infdata)
 
@@ -273,4 +286,22 @@ def main():
     #outdata, samp_rate_output = getAudio(0, outfname)
     #outfdata = process(outfdata, samp_rate_output)
 
+def main():
+    print(f_offset)
+    samp_size = GLOBAL_SAMP_SIZE
+    infname = "tests/input.wav"
+    indata, frame_rate, params_in = getAudio(0, infname)
+    frequencies = process(indata, samp_size)
+    norm = np.linalg.norm(frequencies)
+    frequencies = frequencies/norm
+
+    # Create model, load parameters
+    in_out_size = frequencies.shape[0]
+    model = LSTM(in_out_size, in_out_size)
+    model.load_parameters("boris_params.txt")
+    newfrequencies = model.predict(frequencies) * norm
+    outdata = deprocess(newfrequencies.T)
+    outAudio(0, "tests/output.wav", params_in, outdata)
+
+train()
 main()
