@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 class LSTM():
 
     def __init__(self, input_size, output_size):
@@ -48,6 +49,12 @@ class LSTM():
 
     def sigmoid(self, input):
         return 1 / (1 + np.exp(-input))
+
+    def sigmoid_prime(self, input):
+        return self.sigmoid(input) * (1 - self.sigmoid(input))
+
+    def tanh_prime(self, input):
+        return 1 - np.power((np.tanh(input)), 2)
 
     def forward_pass(self, X, t):
         # Set up some arrays for the cache
@@ -150,7 +157,7 @@ class LSTM():
 
         biases_forget = self.parameters["biases_forget"]
         biases_in_gate = self.parameters["biases_in_gate"]
-        biases_remember = self.parameters["biases_remmeber"]
+        biases_remember = self.parameters["biases_remember"]
         biases_select = self.parameters["biases_select"]
 
         # Set up gradient matrices
@@ -173,18 +180,19 @@ class LSTM():
             pre_remember_t = pre_remember[time_step]
             pre_in_gate_t = pre_in_gate[time_step]
             pre_forget_t = pre_forget[time_step]
+            forget_t = forget[time_step]
             input_and_output_t = input_and_output[time_step]
             state_current = state_added[time_step]
 
             if(time_step == 0):
-                state_previous = np.zeros((self.output_size, Y.shape[1]//t))
+                state_previous = np.zeros((self.output_size, true_t.shape[1]))
             else:
                 state_previous = state_added[time_step - 1]
 
             # Calculate derivatives
             # First, sort out dh_t
             true_t = Y[time_step]
-            dh_t = -2/(t * prediction.shape[0]) * (true_t - prediction_t)
+            dh_t = -2/(t * prediction_t.shape[0]) * (true_t - prediction_t)
 
             # Initialise dc_t if not already done
             if(time_step == t - 1):
@@ -193,38 +201,73 @@ class LSTM():
             # Calculate remember gate gradient
             dr = dc_t
             dp_r = dr * self.sigmoid(pre_select_t) * self.tanh_prime(pre_remember_t)
-            dWr = dWr + np.dot(np_r, input_and_output_t.T)
+            dWr = dWr + np.dot(dp_r, input_and_output_t.T)
+            dbr = dbr + np.sum(dp_r, axis=1, keepdims=True)
 
             # Calculate input gate gradient
             dp_i = dr * np.tanh(pre_remember_t) * self.sigmoid_prime(pre_in_gate_t)
             dWi = dWi + np.dot(dp_i, input_and_output_t.T)
+            dbi = dbi + np.sum(dp_i, axis=1, keepdims=True)
 
             # Calculate forget gate gradient
             df = dc_t * state_previous
             dp_f = df * self.sigmoid_prime(pre_forget_t)
             dWf = dWf + np.dot(dp_f, input_and_output_t.T)
+            dbf = dbf + np.sum(dp_f, axis=1, keepdims=True)
 
             dp_s = dh_t * np.tanh(state_current) * self.sigmoid_prime(pre_select_t)
             dWs = dWs + np.dot(dp_s, input_and_output_t.T)
+            dbs = dbs + np.sum(dp_s, axis=1, keepdims=True)
 
+            # Update dc_t
+            dc_t = dc_t * forget_t
 
+        # Compile all gradients into one dictionary
+        grads = {}
+
+        grads["weights_forget"] = dWf
+        grads["weights_in_gate"] = dWi
+        grads["weights_remember"] = dWr
+        grads["weights_select"] = dWs
+
+        grads["biases_forget"] = dbf
+        grads["biases_in_gate"] = dbi
+        grads["biases_remember"] = dbr
+        grads["biases_select"] = dbs
+
+        return grads
+
+    def optimise_parameters(self, grads, learning_rate):
+        for key in self.parameters:
+            self.parameters[key] = self.parameters[key] - learning_rate * grads[key]
 
     def segment_data(self, t, data):
         # Assumes that data is a matrix/2D array
 
         if (data.shape[1] % t != 0):
-            padding = t - (X.shape[1] % t) # how many zeros to add
+            padding = t - (data.shape[1] % t) # how many zeros to add
             data = np.concatenate((data, np.zeros((data.shape[0], padding))), axis=1)
 
         # Now set up 'mini batches' (inputs for each time step)
         new_data = []
-        for b in range(X.shape[1]//t):
+
+        for time_step in range(t):
             batch = np.empty((data.shape[0], 0))
-            for timestep in range(t):
-                new_vec = data[:, [b * t + timestep]]
+            for b in range(data.shape[1]//t):
+                new_vec = data[:, [b * t + time_step]]
                 batch = np.append(batch, new_vec, axis=1)
             new_data.append(batch)
         return new_data
+
+    def calculate_cost(self, cache, t, Y):
+        predictions = cache["predictions"]
+        losses = np.zeros((Y[0].shape))
+        for time_step in range(t):
+            output_t = predictions[time_step]
+            true_t = Y[time_step]
+            losses = losses + (1/t) * np.power((true_t - output_t), 2)
+        cost = 1/(Y[0].shape[1] * Y[0].shape[0]) * np.sum(losses)
+        return cost
 
     def train(self, X, Y, t, learning_rate, iterations):
         # General guide (note to self)
@@ -275,16 +318,75 @@ class LSTM():
         new_Y = self.segment_data(t, Y)
 
         # Now perform a forward pass each time through
+        costs = []
         for i in range(iterations):
             cache = self.forward_pass(new_X, t)
+            cost = self.calculate_cost(cache, t, new_Y)
+            costs.append(cost)
             gradients = self.calculate_gradients(new_Y, t, cache)
-            self.optimise_parameters(gradients)
+            self.optimise_parameters(gradients, learning_rate)
+            print("Iteration {0} complete".format(i + 1))
 
+        iteration_axis = np.arange(stop=iterations)
+        plt.plot(iteration_axis, costs)
+        plt.show()
 
+    def predict(self, input):
+        output = np.empty((input.shape[0], 0))
+        for i in range(input.shape[1]):
+            x = input[:,[i]]
+            self.input = x
+            self.output = np.zeros((self.output_size, x.shape[1]))
+            self.input_and_output = np.concatenate((self.output, self.input), axis=0)
 
-test = LSTM(10, 5)
-X = np.random.randint(0, 10, (10, 6))
-Y = np.random.randint(0, 10, (5, 6))
-print(X)
-print(Y)
-test.train(X, Y, 2, 1, 1)
+            # Forget gate
+            self.pre_forget = np.dot(self.parameters["weights_forget"], self.input_and_output) + self.parameters["biases_forget"]
+            self.forget = self.sigmoid(self.pre_forget)
+
+            self.state_multiplied = np.multiply(self.forget, self.state)
+
+            # Remember
+            self.pre_in_gate = np.dot(self.parameters["weights_in_gate"], self.input_and_output) + self.parameters["biases_in_gate"]
+            self.in_gate = self.sigmoid(self.pre_in_gate)
+            self.pre_remember = np.dot(self.parameters["weights_remember"], self.input_and_output) + self.parameters["biases_remember"]
+            self.remember = np.tanh(self.pre_remember)
+
+            self.state_added = self.state_multiplied + self.in_gate
+
+            # Select
+            self.state_tanh = np.tanh(self.state_added)
+            self.pre_select = np.dot(self.parameters["weights_select"], self.input_and_output) + self.parameters["biases_select"]
+            self.select = self.sigmoid(self.pre_select)
+
+            self.output = self.select * self.state_tanh
+            output = np.append(output, self.output, axis=1)
+        return output
+
+    def save_parameters(self, file):
+        f = open(file, "w")
+        for param_key in self.parameters:
+            param = self.parameters[param_key]
+            for i in range(param.shape[0]):
+                row = []
+                for j in range(param.shape[1]):
+                    row.append(str(param[i,j]))
+                f.write(",".join(row) + "\n")
+            f.write("_\n")
+        f.close()
+
+    def load_parameters(self, file):
+        f = open(file, "r")
+        for param_key in self.parameters:
+            new_param = np.empty((0, 0))
+            line = f.readline()
+            i = 0
+            while (line[0] != '_'):
+                row = line.replace("\n","").split(",")
+                row = [float(i) for i in row]
+                row = np.array(row)
+                if(i == 0):
+                    new_param = np.empty((0, row.shape[0]))
+                new_param = np.append(new_param, [row], axis=0)
+                line = f.readline()
+                i+=1
+            self.parameters[param_key] = new_param

@@ -75,8 +75,9 @@ def getAudio(intype, fname):
     samples = []  # All samples
 
     rawframes = f.readframes(n).hex()
-    #for j in range(len(rawframes)//(channels * sampwidth * 2)):
-    for j in range(44100):
+
+    #for j in range(44100):
+    for j in range(len(rawframes)//(channels * sampwidth * 2)):
         hexstring = rawframes[j * channels * sampwidth * 2:(j + 1) * channels * sampwidth * 2]
         currenthex = hexstring[0:sampwidth * 2]
         if(j == 1):
@@ -191,7 +192,8 @@ def main():
         outfname = getFname("output file")
     else:
         infname = "training/Raph_Nash.wav"
-        outfname = "training/Boris_Johnson.wav".format(VNAME)
+        outfname = "training/Boris_Johnson.wav"
+    print(outfname)
 
     # Take in audio as input
     # getAudio (file/live = 0/1, fname)
@@ -244,10 +246,14 @@ def main():
     t2 = time.time()
     print("Done: {0}s".format(t2 - t1))
 
+    print("input vector size: {0}".format(infdata.shape[0]))
+    print("output vector size: {0}".format(newvoicefdata.shape[0]))
+
     print("Commencing RNN training")
-    model = LSTM(newvoicefdata.shape[0], newvoicefdata.shape[0])
+    model = LSTM(infdata.shape[0], newvoicefdata.shape[0])
     t1 = time.time()
-    model.train(newvoicefdata, newvoicefdata, 20, 0.1, 200)
+    model.train(infdata, newvoicefdata, 20, 0.1, 5)
+    model.save_parameters("boris_params.txt")
     t2 = time.time()
     print("Time taken: {0}s".format(t2 - t1))
     print("Done. :)")
