@@ -19,7 +19,7 @@ class LSTM():
         # Weights
 
         self.parameters["weights_forget"] = np.random.randn(output_size, input_size + output_size)
-        self.parameters["weights_in_gate"] = np.random.randn(output_size, input_size + output_size)
+        self.parameters["weights_in_gate"] =  np.random.randn(output_size, input_size + output_size)
         self.parameters["weights_remember"] = np.random.randn(output_size, input_size + output_size)
         self.parameters["weights_select"] = np.random.randn(output_size, input_size + output_size)
 
@@ -192,10 +192,10 @@ class LSTM():
             # Calculate derivatives
             # First, sort out dh_t
             true_t = Y[time_step]
-            dh_t = -2/(t * prediction_t.shape[0]) * (true_t - prediction_t)
 
             # Initialise dc_t if not already done
             if(time_step == t - 1):
+                dh_t = -2/(t * prediction_t.shape[0]) * (true_t - prediction_t)
                 dc_t = dh_t * self.sigmoid(pre_select_t)
 
             # Calculate remember gate gradient
@@ -223,7 +223,8 @@ class LSTM():
             dc_t = dc_t * forget_t
 
             # Update dh_t
-            #dh_t = dp_s * 
+            dh_t = np.dot(self.parameters["weights_select"].T, dp_s)
+            dh_t = dh_t[0:self.output_size, :]
 
         # Compile all gradients into one dictionary
         grads = {}
@@ -330,12 +331,12 @@ class LSTM():
             self.optimise_parameters(gradients, learning_rate)
             self.output = np.zeros((self.output_size, 1))
             self.state = np.zeros((self.output_size, 1))
-            print("Iteration {0} complete".format(i + 1))
+            #print("Iteration {0} complete".format(i + 1))
 
 
         iteration_axis = np.arange(stop=iterations)
         plt.plot(iteration_axis, costs)
-        plt.savefig("latest_cost.png")
+        plt.savefig("latest_cost_currentgrad.png")
 
 
     def predict(self, input):
@@ -399,10 +400,12 @@ class LSTM():
             self.parameters[param_key] = new_param
 
 test = LSTM(1, 1)
-X = np.array([[1],[2],[3],[4]]).T
+leng = 100
+X = np.arange(leng).reshape(1, leng) + 1
 print(X)
 Y = X + 1
 print(Y)
 
-test.train(X, Y, 2, 0.01, 10000)
+test.train(X, Y, 5, 0.1, 10000)
+test.save_parameters("test_params.txt")
 print(test.predict(X))
