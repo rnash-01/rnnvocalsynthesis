@@ -257,10 +257,11 @@ class LSTM():
 
         for time_step in range(t):
             batch = np.empty((data.shape[0], 0))
-            for b in range(data.shape[1]//t):
-                new_vec = data[:, [b * t + time_step]]
+            for b in range(data.shape[1] - t + 1):
+                new_vec = data[:, [time_step + b]]
                 batch = np.append(batch, new_vec, axis=1)
             new_data.append(batch)
+
         return new_data
 
     def calculate_cost(self, cache, t, Y):
@@ -399,13 +400,15 @@ class LSTM():
                 i+=1
             self.parameters[param_key] = new_param
 
-test = LSTM(1, 1)
-leng = 100
-X = np.arange(leng).reshape(1, leng) + 1
+leng = 4
+test = LSTM(leng, leng)
+X = np.identity(leng)
+X_norm = np.linalg.norm(X)
+Y = X
 print(X)
-Y = X + 1
-print(Y)
+Y_norm = np.linalg.norm(Y)
 
-test.train(X, Y, 5, 0.1, 10000)
+test.train(X, Y, 10, 1, 1000)
 test.save_parameters("test_params.txt")
-print(test.predict(X))
+Y_test = test.predict(X)
+print(Y_test)
