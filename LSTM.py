@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 class LSTM():
 
-    def __init__(self, input_size, output_size):
+    def __init__(self, input_size, output_size, forget_layers, remember_layers, select_layers):
         # Properties
         self.input_size = input_size
         self.output_size = output_size
@@ -16,32 +16,69 @@ class LSTM():
         # * input and 'previous' output concatenated together.
 
         self.parameters = {}
+        """
         # Weights
-
         self.parameters["weights_forget"] = np.random.randn(output_size, input_size + output_size)
         self.parameters["weights_in_gate"] =  np.random.randn(output_size, input_size + output_size)
         self.parameters["weights_remember"] = np.random.randn(output_size, input_size + output_size)
         self.parameters["weights_select"] = np.random.randn(output_size, input_size + output_size)
-
         # Biases
         self.parameters["biases_forget"] = np.zeros((output_size, 1))
         self.parameters["biases_in_gate"] = np.zeros((output_size, 1))
         self.parameters["biases_remember"] = np.zeros((output_size, 1))
         self.parameters["biases_select"] = np.zeros((output_size, 1))
+        """
 
 
         # Additional state information
-        self.pre_forget = np.zeros((output_size, 1)) # before sigmoid function
-        self.forget = np.zeros((output_size, 1)) # after sigmoid function
+        self.forget = {}
+        self.in_gate = {}
+        self.select = {}
+        self.remember = {}
 
-        self.pre_in_gate = np.zeros((output_size, 1)) # before sigmoid
-        self.in_gate = np.zeros((output_size, 1)) # after sigmoid
+        # previous_size - the size of the previous layer (first layer being the input)
+        previous_size = self.input_and_output.shape[0]
+        for i in range(len(forget_layers)):
+            size = forget_layers[i]
 
-        self.pre_remember = np.zeros((output_size, 1)) # before sigmoid
-        self.remember = np.zeros((output_size, 1)) # after sigmoid
+            # Layers
+            self.forget["{0}_Z".format(i)] = np.zeros((size, 1))
+            self.forget["{0}_A".format(i)] = np.zeros((size, 1))
 
-        self.pre_select = np.zeros((output_size, 1)) # before sigmoid
-        self.select = np.zeros((output_size, 1)) # after sigmoid
+            # Parameters for layers
+            self.parameters["weights_forget_{0}".format(i)] = np.random.randn(size, previous_size)
+            self.parameters["biases_forget_{0}".format(i)] = np.zeros((size, 1))
+            previous_size = size
+
+        previous_size = self.input_and_output.shape[0]
+        for i in range(len(select_layers)):
+            size = select_layers[i]
+
+            # Layers
+            self.select["{0}_Z".format(i)] = np.zeros((size, 1))
+            self.select["{0}_A".format(i)] = np.zeros((size, 1))
+
+            # Parameters for layers
+            self.parameters["weights_select_{0}".format(i)] = np.random.randn(size, previous_size)
+            self.parameters["biases_select_{0}".format(i)] = np.zeros((size, 1))
+            previous_size = size
+
+        previous_size = self.input_and_output.shape[0]
+        for i in range(len(remember_layers)):
+            size = remember_layers[i]
+
+            # Layers
+            self.remember["{0}_Z".format(i)] = np.zeros((size, 1))
+            self.in_gate["{0}_Z".format(i)] = np.zeros((size, 1))
+            self.remember["{0}_A".format(i)] = np.zeros((size, 1))
+            self.in_gate["{0}_A".format(i)] = np.zeros((size, 1))
+
+            # Parameters for layers
+            self.parameters["weights_remember_{0}".format(i)] = np.random.randn(size, previous_size)
+            self.parameters["weights_in_gate_{0}".format(i)] = np.random.randn(size, previous_size)
+            self.parameters["biases_remember_{0}".format(i)] = np.zeros((size, 1))
+            self.parameters["biases_in_gate_{0}".format(i)] = np.zeros((size, 1))
+            previous_size = size
 
         self.state_multiplied = np.zeros((output_size, 1)) # state * forget
         self.state_added = np.zeros((output_size, 1)) # state + remember
@@ -81,10 +118,16 @@ class LSTM():
             self.input_and_output = np.concatenate((self.output, self.input), axis=0)
 
             # Forget gate
-            self.pre_forget = np.dot(self.parameters["weights_forget"], self.input_and_output) + self.parameters["biases_forget"]
-            self.forget = self.sigmoid(self.pre_forget)
 
-            self.state_multiplied = np.multiply(self.forget, self.state)
+            current_val = self.input_and_output
+            for i in range(len(self.forget)//2):
+                weights = self.parameters["weights_forget_{0}".format(i)]
+                bias = self.parameters["biases_forget_{0}".format(i)]
+                self.forget["{0}_Z".format(i)] = np.dot(weights, current_val) + bias
+                self.forget["{0}_A".format(i)] = self.sigmoid(self.forget["{0}_Z".format(i)])
+                current_val = self.forget["{0}_A".format[i]]
+
+            self.state_multiplied = np.multiply(current_val, self.state)
 
             # Remember
             self.pre_in_gate = np.dot(self.parameters["weights_in_gate"], self.input_and_output) + self.parameters["biases_in_gate"]
@@ -401,7 +444,8 @@ class LSTM():
             self.parameters[param_key] = new_param
 
 leng = 4
-test = LSTM(leng, leng)
+test = LSTM(leng, leng, [5, 5, leng], [5, 5, leng], [5, 5, leng])
+"""
 X = np.identity(leng)
 X_norm = np.linalg.norm(X)
 Y = X
@@ -412,3 +456,4 @@ test.train(X, Y, 10, 1, 1000)
 test.save_parameters("test_params.txt")
 Y_test = test.predict(X)
 print(Y_test)
+"""
