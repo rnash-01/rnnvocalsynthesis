@@ -127,6 +127,7 @@ class LSTM():
             # Forget gate
 
             current_val = self.input_and_output
+            self.forget["input"] = current_val
             for i in range(len(self.forget)//2):
                 weights = self.parameters["weights_forget_{0}".format(i)]
                 bias = self.parameters["biases_forget_{0}".format(i)]
@@ -138,18 +139,20 @@ class LSTM():
 
             # Remember gate
             current_val = self.input_and_output
+            self.remember["input"] = current_val
             for i in range(len(self.remember)//2):
                 weights = self.parameters["weights_remember_{0}".format(i)]
                 bias = self.parameters["biases_remember_{0}".format(i)]
 
                 self.remember["{0}_Z".format(i)] = np.dot(weights, current_val) + bias
-                self.remember["{0}_A".format(i)] = self.sigmoid(self.remember["{0}_Z".format(i)])
+                self.remember["{0}_A".format(i)] = self.tanh(self.remember["{0}_Z".format(i)])
                 current_val = self.remember["{0}_A".format(i)]
 
             # In gate
             remember_out = current_val
 
             current_val = self.input_and_output
+            self.in_gate["input"] = current_val
             for i in range(len(self.in_gate)//2):
                 weights = self.parameters["weights_in_gate_{0}".format(i)]
                 bias = self.parameters["biases_in_gate_{0}".format(i)]
@@ -165,6 +168,7 @@ class LSTM():
 
             # Select
             current_val = self.input_and_output
+            self.select["input"] = current_val
             for i in range(len(self.select)//2):
                 weights = self.parameters["weights_select_{0}".format(i)]
                 bias = self.parameters["biases_select_{0}".format(i)]
@@ -202,13 +206,9 @@ class LSTM():
     def calculate_gradients(self, Y, t, cache):
         # Get all cache elements
         input_and_output = cache["input_and_output"]
-        pre_forget = cache["pre_forget"]
         forget = cache["forget"]
-        pre_in_gate = cache["pre_in_gate"]
         in_gate = cache["in_gate"]
-        pre_remember = cache["pre_remember"]
         remember = cache["remember"]
-        pre_select = cache["pre_select"]
         select = cache["select"]
         state_multiplied = cache["state_multiplied"]
         state_added = cache["state_added"]
@@ -216,38 +216,21 @@ class LSTM():
         predictions = cache["predictions"]
 
 
-        # Get parameters
-        weights_forget = self.parameters["weights_forget"]
-        weights_in_gate = self.parameters["weights_in_gate"]
-        weights_remember = self.parameters["weights_remember"]
-        weights_select = self.parameters["weights_select"]
-
-        biases_forget = self.parameters["biases_forget"]
-        biases_in_gate = self.parameters["biases_in_gate"]
-        biases_remember = self.parameters["biases_remember"]
-        biases_select = self.parameters["biases_select"]
-
         # Set up gradient matrices
-        dWf = np.zeros(weights_forget.shape)
-        dWi = np.zeros(weights_in_gate.shape)
-        dWr = np.zeros(weights_remember.shape)
-        dWs = np.zeros(weights_remember.shape)
-
-        dbf = np.zeros(biases_forget.shape)
-        dbi = np.zeros(biases_in_gate.shape)
-        dbr = np.zeros(biases_remember.shape)
-        dbs = np.zeros(biases_select.shape)
+        gradients = {}
+        for param_key in self.parameters:
+            param = self.parameters[param_key]
+            gradients[param_key] = np.zeros(param.shape)
 
         for i in range(t):
             time_step = t - 1 - i
 
             # Get important states
             prediction_t = predictions[time_step]
-            pre_select_t = pre_select[time_step]
-            pre_remember_t = pre_remember[time_step]
-            pre_in_gate_t = pre_in_gate[time_step]
-            pre_forget_t = pre_forget[time_step]
             forget_t = forget[time_step]
+            select_t = select[time_step]
+            remember_t = remember[time_step]
+            in_gate_t = in_gate[time_step]
             input_and_output_t = input_and_output[time_step]
             state_current = state_added[time_step]
 
@@ -267,10 +250,33 @@ class LSTM():
 
             # Calculate remember gate gradient
             dr = dc_t
-            dp_r = dr * self.sigmoid(pre_select_t) * self.tanh_prime(pre_remember_t)
+            in_gate_layer = in_gate_t["A_{0}".format(len(in_gate_t)//2 - 1)]
+            remember_layer = remember_t["Z_{0}".format(len(in_gate_t)//2 - 1)]
+            dp_r = dr * in_gate_layer * self.tanh_prime(remember_layer)
+            current_multiplier = dp_r
+
+            for i in range(len(remember_t)//2):
+                l = len(remember_t)//2 - 1 - i # current layer number
+                Z = remember_t["Z_{0}".format(l)]
+                if(l > 0):
+                    A_prev = remember_t["A_{0}".format(l - 1)]
+                else:
+                    A_prev = input_and_output_t
+
+                W = self.parameters["weights_remember_{0}".format(l)]
+                B = self.parameters["biases_remember_{0}".format(l)]
+                dW = np.dot(current_multiplier, A_prev.T)
+                db = np.sum(current_multiplier, axis=1, keepdims=True)
+                gradients["weights_remember_{0}".format(l)] += dW
+                gradients["biases_remember_{0}".format(l)] += db
+
+                current_multiplier = np.dot(W.T, Z)
+
+
+            """
             dWr = dWr + np.dot(dp_r, input_and_output_t.T)
             dbr = dbr + np.sum(dp_r, axis=1, keepdims=True)
-
+            """
             # Calculate input gate gradient
             dp_i = dr * np.tanh(pre_remember_t) * self.sigmoid_prime(pre_in_gate_t)
             dWi = dWi + np.dot(dp_i, input_and_output_t.T)
