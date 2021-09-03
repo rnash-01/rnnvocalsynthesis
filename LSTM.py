@@ -1,5 +1,5 @@
 import numpy as np
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 class LSTM():
 
     def __init__(self, input_size, output_size, forget_layers, remember_layers, in_gate_layers, select_layers):
@@ -128,7 +128,7 @@ class LSTM():
 
             current_val = self.input_and_output
             self.forget["input"] = current_val
-            for i in range(len(self.forget)//2):
+            for i in range((len(self.forget) - 1)//2):
                 weights = self.parameters["weights_forget_{0}".format(i)]
                 bias = self.parameters["biases_forget_{0}".format(i)]
                 self.forget["{0}_Z".format(i)] = np.dot(weights, current_val) + bias
@@ -140,12 +140,12 @@ class LSTM():
             # Remember gate
             current_val = self.input_and_output
             self.remember["input"] = current_val
-            for i in range(len(self.remember)//2):
+            for i in range((len(self.remember) - 1)//2):
                 weights = self.parameters["weights_remember_{0}".format(i)]
                 bias = self.parameters["biases_remember_{0}".format(i)]
 
                 self.remember["{0}_Z".format(i)] = np.dot(weights, current_val) + bias
-                self.remember["{0}_A".format(i)] = self.tanh(self.remember["{0}_Z".format(i)])
+                self.remember["{0}_A".format(i)] = np.tanh(self.remember["{0}_Z".format(i)])
                 current_val = self.remember["{0}_A".format(i)]
 
             # In gate
@@ -153,7 +153,7 @@ class LSTM():
 
             current_val = self.input_and_output
             self.in_gate["input"] = current_val
-            for i in range(len(self.in_gate)//2):
+            for i in range((len(self.in_gate) - 1)//2):
                 weights = self.parameters["weights_in_gate_{0}".format(i)]
                 bias = self.parameters["biases_in_gate_{0}".format(i)]
 
@@ -169,7 +169,7 @@ class LSTM():
             # Select
             current_val = self.input_and_output
             self.select["input"] = current_val
-            for i in range(len(self.select)//2):
+            for i in range((len(self.select) - 1)//2):
                 weights = self.parameters["weights_select_{0}".format(i)]
                 bias = self.parameters["biases_select_{0}".format(i)]
 
@@ -234,6 +234,12 @@ class LSTM():
             input_and_output_t = input_and_output[time_step]
             state_current = state_added[time_step]
 
+            # Get last layers of all networks
+            in_gate_layer = in_gate_t["{0}_Z".format(len(in_gate_t)//2 - 1)]
+            remember_layer = remember_t["{0}_Z".format(len(in_gate_t)//2 - 1)]
+            forget_layer = forget_t["{0}_Z".format(len(forget_t)//2 - 1)]
+            select_layer = select_t["{0}_Z".format(len(select_t)//2 - 1)]
+
             if(time_step == 0):
                 state_previous = np.zeros((self.output_size, true_t.shape[1]))
             else:
@@ -242,24 +248,22 @@ class LSTM():
             # Calculate derivatives
             # First, sort out dh_t
             true_t = Y[time_step]
+            dh_t = -2/(t * prediction_t.shape[0]) * (true_t - prediction_t)
 
             # Initialise dc_t if not already done
             if(time_step == t - 1):
-                dh_t = -2/(t * prediction_t.shape[0]) * (true_t - prediction_t)
-                dc_t = dh_t * self.sigmoid(pre_select_t)
+                dc_t = dh_t * self.sigmoid(select_layer)
 
             # Calculate remember gate gradient
             dr = dc_t
-            in_gate_layer = in_gate_t["A_{0}".format(len(in_gate_t)//2 - 1)]
-            remember_layer = remember_t["Z_{0}".format(len(in_gate_t)//2 - 1)]
-            dp_r = dr * in_gate_layer * self.tanh_prime(remember_layer)
-            current_multiplier = dp_r
+            dp_r = dr * self.sigmoid(in_gate_layer) * self.tanh_prime(remember_layer)
 
+            current_multiplier = dp_r
             for i in range(len(remember_t)//2):
                 l = len(remember_t)//2 - 1 - i # current layer number
-                Z = remember_t["Z_{0}".format(l)]
+                Z = remember_t["{0}_Z".format(l)]
                 if(l > 0):
-                    A_prev = remember_t["A_{0}".format(l - 1)]
+                    A_prev = remember_t["{0}_A".format(l - 1)]
                 else:
                     A_prev = input_and_output_t
 
@@ -267,52 +271,79 @@ class LSTM():
                 B = self.parameters["biases_remember_{0}".format(l)]
                 dW = np.dot(current_multiplier, A_prev.T)
                 db = np.sum(current_multiplier, axis=1, keepdims=True)
-                gradients["weights_remember_{0}".format(l)] += dW
-                gradients["biases_remember_{0}".format(l)] += db
+                gradients["weights_remember_{0}".format(l)] = gradients["weights_remember_{0}".format(l)] + dW
+                gradients["biases_remember_{0}".format(l)] = gradients["biases_remember_{0}".format(l)] + db
 
                 current_multiplier = np.dot(W.T, Z)
 
 
-            """
-            dWr = dWr + np.dot(dp_r, input_and_output_t.T)
-            dbr = dbr + np.sum(dp_r, axis=1, keepdims=True)
-            """
             # Calculate input gate gradient
-            dp_i = dr * np.tanh(pre_remember_t) * self.sigmoid_prime(pre_in_gate_t)
-            dWi = dWi + np.dot(dp_i, input_and_output_t.T)
-            dbi = dbi + np.sum(dp_i, axis=1, keepdims=True)
+            dp_i = dr * np.tanh(remember_layer) * self.sigmoid_prime(in_gate_layer)
+
+            current_multiplier = dp_i
+            for i in range(len(in_gate_t)//2):
+                l = len(in_gate_t)//2 - 1 - i # current layer number
+                Z = in_gate_t["{0}_Z".format(l)]
+                if(l > 0):
+                    A_prev = in_gate_t["{0}_A".format(l - 1)]
+                else:
+                    A_prev = input_and_output_t
+
+                W = self.parameters["weights_in_gate_{0}".format(l)]
+                B = self.parameters["biases_in_gate_{0}".format(l)]
+                dW = np.dot(current_multiplier, A_prev.T)
+                db = np.sum(current_multiplier, axis=1, keepdims=True)
+                gradients["weights_in_gate_{0}".format(l)] = gradients["weights_in_gate_{0}".format(l)] + dW
+                gradients["biases_in_gate_{0}".format(l)] = gradients["biases_in_gate_{0}".format(l)] + db
+
+                current_multiplier = np.dot(W.T, Z)
 
             # Calculate forget gate gradient
             df = dc_t * state_previous
-            dp_f = df * self.sigmoid_prime(pre_forget_t)
-            dWf = dWf + np.dot(dp_f, input_and_output_t.T)
-            dbf = dbf + np.sum(dp_f, axis=1, keepdims=True)
+            dp_f = df * self.sigmoid_prime(forget_layer)
 
-            dp_s = dh_t * np.tanh(state_current) * self.sigmoid_prime(pre_select_t)
-            dWs = dWs + np.dot(dp_s, input_and_output_t.T)
-            dbs = dbs + np.sum(dp_s, axis=1, keepdims=True)
+            current_multiplier = dp_f
+            for i in range(len(forget_t)//2):
+                l = len(forget_t)//2 - 1 - i
+                Z = forget_t["{0}_Z".format(l)]
+                if(l > 0):
+                    A_prev = forget_t["{0}_A".format(l - 1)]
+                else:
+                    A_prev = input_and_output_t
 
+                W = self.parameters["weights_forget_{0}".format(l)]
+                B = self.parameters["biases_forget_{0}".format(l)]
+                dW = np.dot(current_multiplier, A_prev.T)
+                db = np.sum(current_multiplier, axis=1, keepdims=True)
+                gradients["weights_forget_{0}".format(l)] = gradients["weights_forget_{0}".format(l)] + dW
+                gradients["biases_forget_{0}".format(l)] = gradients["biases_forget_{0}".format(l)] + db
+
+                current_multiplier = np.dot(W.T, Z)
+
+            dp_s = dh_t * np.tanh(state_current) * self.sigmoid_prime(select_layer)
+
+            current_multiplier = dp_s
+            for i in range(len(select_t)//2):
+                l = len(select_t)//2 - 1 - i
+                Z = select_t["{0}_Z".format(l)]
+                if(l > 0):
+                    A_prev = select_t["{0}_A".format(l - 1)]
+                else:
+                    A_prev = input_and_output_t
+
+                W = self.parameters["weights_select_{0}".format(l)]
+                B = self.parameters["biases_select_{0}".format(l)]
+                dW = np.dot(current_multiplier, A_prev.T)
+                db = np.sum(current_multiplier, axis=1, keepdims=True)
+                gradients["weights_select_{0}".format(l)] = gradients["weights_select_{0}".format(l)] + dW
+                gradients["biases_select_{0}".format(l)] = gradients["biases_select_{0}".format(l)] + db
+
+                current_multiplier = np.dot(W.T, Z)
             # Update dc_t
-            dc_t = dc_t * forget_t
+            dc_t = dc_t * self.sigmoid(forget_layer)
 
-            # Update dh_t
-            dh_t = np.dot(self.parameters["weights_select"].T, dp_s)
-            dh_t = dh_t[0:self.output_size, :]
 
-        # Compile all gradients into one dictionary
-        grads = {}
-
-        grads["weights_forget"] = dWf
-        grads["weights_in_gate"] = dWi
-        grads["weights_remember"] = dWr
-        grads["weights_select"] = dWs
-
-        grads["biases_forget"] = dbf
-        grads["biases_in_gate"] = dbi
-        grads["biases_remember"] = dbr
-        grads["biases_select"] = dbs
-
-        return grads
+        return gradients
 
     def optimise_parameters(self, grads, learning_rate):
         for key in self.parameters:
@@ -405,7 +436,7 @@ class LSTM():
             self.optimise_parameters(gradients, learning_rate)
             self.output = np.zeros((self.output_size, 1))
             self.state = np.zeros((self.output_size, 1))
-            #print("Iteration {0} complete".format(i + 1))
+            print("Iteration {0} complete".format(i + 1))
 
 
         iteration_axis = np.arange(stop=iterations)
@@ -422,25 +453,54 @@ class LSTM():
             self.input_and_output = np.concatenate((self.output, self.input), axis=0)
 
             # Forget gate
-            self.pre_forget = np.dot(self.parameters["weights_forget"], self.input_and_output) + self.parameters["biases_forget"]
-            self.forget = self.sigmoid(self.pre_forget)
+            current_val = self.input_and_output
+            print("LEN", len(self.forget))
+            for i in range((len(self.forget) - 1)//2):
+                weights = self.parameters["weights_forget_{0}".format(i)]
+                bias = self.parameters["biases_forget_{0}".format(i)]
 
-            self.state_multiplied = np.multiply(self.forget, self.state)
+                self.forget["{0}_Z".format(i)] = np.dot(weights, current_val) + bias
+                self.forget["{0}_A".format(i)] = self.sigmoid(self.forget["{0}_Z".format(i)])
+                current_val = self.forget["{0}_A".format(i)]
 
-            # Remember
-            self.pre_in_gate = np.dot(self.parameters["weights_in_gate"], self.input_and_output) + self.parameters["biases_in_gate"]
-            self.in_gate = self.sigmoid(self.pre_in_gate)
-            self.pre_remember = np.dot(self.parameters["weights_remember"], self.input_and_output) + self.parameters["biases_remember"]
-            self.remember = np.tanh(self.pre_remember)
 
-            self.state_added = self.state_multiplied + self.in_gate
+            self.state_multiplied = np.multiply(current_val, self.state)
+
+            # Remember and in gate
+            current_val = self.input_and_output
+            for i in range((len(self.remember) - 1)//2):
+                weights = self.parameters["weights_remember_{0}".format(i)]
+                bias = self.parameters["biases_remember_{0}".format(i)]
+
+                self.remember["{0}_Z".format(i)] = np.dot(weights, current_val) + bias
+                self.remember["{0}_A".format(i)] = self.sigmoid(self.remember["{0}_Z".format(i)])
+                current_val = self.remember["{0}_A".format(i)]
+
+            remember_out = current_val
+
+            current_val = self.input_and_output
+            for i in range((len(self.in_gate) - 1)//2):
+                weights = self.parameters["weights_in_gate_{0}".format(i)]
+                bias = self.parameters["biases_in_gate_{0}".format(i)]
+
+                self.in_gate["{0}_Z".format(i)] = np.dot(weights, current_val) + bias
+                self.in_gate["{0}_A".format(i)] = self.sigmoid(self.in_gate["{0}_Z".format(i)])
+                current_val = self.in_gate["{0}_A".format(i)]
+            self.state_added = self.state_multiplied + (remember_out * current_val)
 
             # Select
             self.state_tanh = np.tanh(self.state_added)
-            self.pre_select = np.dot(self.parameters["weights_select"], self.input_and_output) + self.parameters["biases_select"]
-            self.select = self.sigmoid(self.pre_select)
 
-            self.output = self.select * self.state_tanh
+            current_val = self.input_and_output
+            for i in range((len(self.select) - 1)//2):
+                weights = self.parameters["weights_select_{0}".format(i)]
+                bias = self.parameters["biases_select_{0}".format(i)]
+
+                self.select["{0}_Z".format(i)] = np.dot(weights, current_val) + bias
+                self.select["{0}_A".format(i)] = self.sigmoid(self.select["{0}_Z".format(i)])
+                current_val = self.select["{0}_A".format(i)]
+
+            self.output = current_val * self.state_tanh
             output = np.append(output, self.output, axis=1)
         return output
 
@@ -473,21 +533,16 @@ class LSTM():
                 i+=1
             self.parameters[param_key] = new_param
 
-leng = 4
-test = LSTM(leng, leng, [5, 5, leng], [5, 5, leng], [5, 5, leng], [5, 5, leng])
-X = np.random.randint(0, 10, (leng, 50))
-X = test.segment_data(5, X)
-print(len(X), X[0].shape[1])
-test.forward_pass(X, 5)
-"""
-X = np.identity(leng)
+"""leng = 1
+test = LSTM(leng, leng, [leng], [leng], [leng], [leng])
+
+X = np.arange(stop=50)
+X = X.reshape(1, X.shape[0])
 X_norm = np.linalg.norm(X)
 Y = X
-print(X)
 Y_norm = np.linalg.norm(Y)
 
-test.train(X, Y, 10, 1, 1000)
+test.train(X/X_norm, Y/Y_norm, 4, 0.2, 5000)
 test.save_parameters("test_params.txt")
-Y_test = test.predict(X)
-print(Y_test)
-"""
+Y_test = test.predict(X/X_norm)
+print(Y_test * Y_norm)"""

@@ -76,8 +76,8 @@ def getAudio(intype, fname):
 
     rawframes = f.readframes(n).hex()
 
-    #for j in range(44100):
-    for j in range(len(rawframes)//(channels * sampwidth * 2)):
+    #for j in range(len(rawframes)//(channels * sampwidth * 2)):
+    for j in range(44100):
         hexstring = rawframes[j * channels * sampwidth * 2:(j + 1) * channels * sampwidth * 2]
         currenthex = hexstring[0:sampwidth * 2]
         if(j == 1):
@@ -251,9 +251,10 @@ def train():
     print("output vector size: {0}".format(newvoicefdata.shape[0]))
 
     print("Commencing RNN training")
-    model = LSTM(infdata.shape[0], newvoicefdata.shape[0])
+    internals = newvoicefdata.shape[0]
+    model = LSTM(newvoicefdata.shape[0], newvoicefdata.shape[0], [internals], [internals], [internals], [internals])
     t1 = time.time()
-    model.train(infdata, newvoicefdata, 20, 0.1, 100)
+    model.train(newvoicefdata, newvoicefdata, 20, 1, 100)
     t2 = time.time()
     print("Trained in {0}s".format(t2-t1))
     print("Saving parameters...")
