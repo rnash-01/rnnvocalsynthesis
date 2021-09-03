@@ -532,8 +532,8 @@ class LSTM():
                 line = f.readline()
                 i+=1
             self.parameters[param_key] = new_param
-
-"""leng = 1
+"""
+leng = 1
 test = LSTM(leng, leng, [leng], [leng], [leng], [leng])
 
 X = np.arange(stop=50)
@@ -542,7 +542,7 @@ X_norm = np.linalg.norm(X)
 Y = X
 Y_norm = np.linalg.norm(Y)
 
-test.train(X/X_norm, Y/Y_norm, 4, 0.2, 5000)
+test.train(X/X_norm, Y/Y_norm, 4, 0.2, 50)
 test.save_parameters("test_params.txt")
-Y_test = test.predict(X/X_norm)
-print(Y_test * Y_norm)"""
+test.load_parameters("test_params.txt")
+"""
