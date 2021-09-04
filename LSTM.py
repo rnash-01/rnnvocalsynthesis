@@ -38,6 +38,8 @@ class LSTM():
 
         # previous_size - the size of the previous layer (first layer being the input)
         previous_size = self.input_and_output.shape[0]
+        self.forget["input"] = np.zeros((previous_size, 1))
+
         for i in range(len(forget_layers)):
             size = forget_layers[i]
 
@@ -51,6 +53,7 @@ class LSTM():
             previous_size = size
 
         previous_size = self.input_and_output.shape[0]
+        self.select["input"] = np.zeros((previous_size, 1))
 
         for i in range(len(select_layers)):
             size = select_layers[i]
@@ -65,6 +68,7 @@ class LSTM():
             previous_size = size
 
         previous_size = self.input_and_output.shape[0]
+        self.remember["input"] = np.zeros((previous_size, 1))
 
         for i in range(len(remember_layers)):
             size = remember_layers[i]
@@ -79,6 +83,8 @@ class LSTM():
             previous_size = size
 
         previous_size = self.input_and_output.shape[0]
+        self.in_gate["input"] = np.zeros((previous_size, 1))
+
         for i in range(len(in_gate_layers)):
             size = in_gate_layers[i]
             #Layers
