@@ -522,7 +522,7 @@ class LSTM():
             new_param = np.empty((0, 0))
             line = f.readline()
             i = 0
-            while (line[0] != '_'):
+            while (len(line) > 0 and line[0] != '_'):
                 row = line.replace("\n","").split(",")
                 row = [float(i) for i in row]
                 row = np.array(row)

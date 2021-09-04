@@ -32,7 +32,7 @@ MAX_AMP = 1
 # Fourier Offset - ensure that each sample subject to a fourier transform
 # transitions smoothly from the previous
 # (update to be 1/8 of sample size)
-GLOBAL_SAMP_SIZE = int(0.08 * 44100)
+GLOBAL_SAMP_SIZE = int(0.25 * 44100)
 merge = GLOBAL_SAMP_SIZE//2
 f_offset = GLOBAL_SAMP_SIZE - merge
 
@@ -192,81 +192,78 @@ def train():
     # Take in audio as input
     # getAudio (file/live = 0/1, fname)
     model = ""
-    for i in range(1, 4):
-        infname = "training/Raph_Nash_{0}.wav".format(i)
-        outfname = "training/Boris_Johnson_{0}.wav".format(i)
-        print("Getting comparable input audio")
-        t1 = time.time()
-        indata, samp_rate_input, params_in = getAudio(0, infname)
-        t2 = time.time()
-        print("Audio taken in: {0}s".format(t2 - t1))
+    infname = "training/Raph_Nash_3.wav"
+    outfname = "training/Boris_Johnson_3.wav"
+    print("Getting comparable input audio")
+    t1 = time.time()
+    indata, samp_rate_input, params_in = getAudio(0, infname)
+    t2 = time.time()
+    print("Audio taken in: {0}s".format(t2 - t1))
 
-        # Take in compared output
-        print("Getting comparable output audio")
-        t1 = time.time()
-        newvoicedata, samp_rate_newvoice, params_newvoice = getAudio(0, outfname)
-        t2 = time.time()
-        print("Audio taken in: {0}s".format(t2 - t1))
+    # Take in compared output
+    print("Getting comparable output audio")
+    t1 = time.time()
+    #newvoicedata, samp_rate_newvoice, params_newvoice = getAudio(0, outfname)
+    t2 = time.time()
+    print("Audio taken in: {0}s".format(t2 - t1))
 
-        samp_size = GLOBAL_SAMP_SIZE
+    samp_size = GLOBAL_SAMP_SIZE
 
-        print("####################################")
-        print("Input audio len (frames): {0}".format(len(indata)))
-        print("Output audio len (frames): {0}".format(len(newvoicedata)))
-        print("####################################")
+    print("####################################")
+    print("Input audio len (frames): {0}".format(len(indata)))
+    #print("Output audio len (frames): {0}".format(len(newvoicedata)))
+    print("####################################")
 
-        print("Processing 'input' audio")
-        t1 = time.time()
-        infdata = process(indata, samp_size)
-        t2 = time.time()
-        print("Input audio processed in {0}s".format(t2 - t1))
+    print("Processing 'input' audio")
+    t1 = time.time()
+    infdata = process(indata, samp_size)
+    t2 = time.time()
+    print("Input audio processed in {0}s".format(t2 - t1))
 
-        print("Processing 'output' audio")
-        t1 = time.time()
-        newvoicefdata = process(newvoicedata, samp_size)
-        t2 = time.time()
-        print("Output audio processed in {0}s".format(t2 - t1))
+    print("Processing 'output' audio")
+    t1 = time.time()
+    #newvoicefdata = process(newvoicedata, samp_size)
+    t2 = time.time()
+    print("Output audio processed in {0}s".format(t2 - t1))
 
-        print("####################################")
-        print("Input frequency samples len: {0}".format(len(infdata)))
-        print("Output frequency samples len: {0}".format(len(newvoicefdata)))
-        print("####################################")
+    print("####################################")
+    print("Input frequency samples len: {0}".format(len(infdata)))
+    #print("Output frequency samples len: {0}".format(len(newvoicefdata)))
+    print("####################################")
 
-        print("Normalizing input data (to avoid overflows)")
-        t1 = time.time()
-        infdata = infdata/np.linalg.norm(infdata)
-        t2 = time.time()
-        print("Done: {0}s".format(t2 - t1))
+    print("Normalizing input data (to avoid overflows)")
+    t1 = time.time()
+    norm = np.linalg.norm(infdata)
+    infdata = infdata/norm
+    t2 = time.time()
+    print("Done: {0}s".format(t2 - t1))
 
-        print("Normalizing output data (to avoid overflows)")
-        t1 = time.time()
-        norm = np.linalg.norm(newvoicefdata)
-        newvoicefdata = newvoicefdata/np.linalg.norm(newvoicefdata)
-        t2 = time.time()
-        print("Done: {0}s".format(t2 - t1))
+    print("Normalizing output data (to avoid overflows)")
+    t1 = time.time()
+    #norm = np.linalg.norm(newvoicefdata)
+    #newvoicefdata = newvoicefdata/np.linalg.norm(newvoicefdata)
+    t2 = time.time()
+    print("Done: {0}s".format(t2 - t1))
 
-        print("input vector size: {0}".format(infdata.shape[0]))
-        print("output vector size: {0}".format(newvoicefdata.shape[0]))
+    print("input vector size: {0}".format(infdata.shape[0]))
+    #print("output vector size: {0}".format(newvoicefdata.shape[0]))
 
-        print("Commencing RNN training")
-        internals = newvoicefdata.shape[0]
-        if(i == 1):
-            model = LSTM(newvoicefdata.shape[0], newvoicefdata.shape[0], [internals], [internals], [internals], [internals])
+    print("Commencing RNN training")
+    internals = infdata.shape[0]
+    model = LSTM(internals, internals, [internals], [internals], [internals], [internals])
 
-        """
-        if(os.path.exists("boris_params.txt") and i == 1):
+    if(os.path.exists("boris_params.txt")):
         model.load_parameters("boris_params.txt")
-        """
 
-        t1 = time.time()
-        model.train(infdata, newvoicefdata, 10, 1, 100)
-        t2 = time.time()
-        print("Trained in {0}s".format(t2-t1))
-        print("Saving parameters...")
-        t1 = time.time()
-        model.save_parameters("boris_params.txt")
-        t2 = time.time()
-        print("Saved. Time taken: {0}s".format(t2 - t1))
+    t1 = time.time()
+    #model.train(infdata, newvoicefdata, 10, 1, 300)
+    t2 = time.time()
+    print("Trained in {0}s".format(t2-t1))
+    print("Saving parameters...")
+    t1 = time.time()
+    model.save_parameters("boris_params.txt")
+    t2 = time.time()
+    print("Saved. Time taken: {0}s".format(t2 - t1))
 
     print("Creating test output based on training input")
     t1 = time.time()
