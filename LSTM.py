@@ -1,5 +1,5 @@
 import numpy as np
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 class LSTM():
 
     def __init__(self, input_size, output_size, forget_layers, remember_layers, in_gate_layers, select_layers):
@@ -384,7 +384,7 @@ class LSTM():
         cost = 1/(Y[0].shape[1] * Y[0].shape[0]) * np.sum(losses)
         return cost
 
-    def train(self, X, Y, t, learning_rate, iterations):
+    def train(self, X, Y, t, learning_rate, iterations, fname):
         # General guide (note to self)
 
         # Assume we have a array of input vectors (or an input matrix)
@@ -446,8 +446,8 @@ class LSTM():
 
 
         iteration_axis = np.arange(stop=iterations)
-        #plt.plot(iteration_axis, costs)
-        #plt.savefig("latest_cost_currentgrad.png")
+        plt.plot(iteration_axis, costs)
+        plt.savefig(fname)
 
 
     def predict(self, input):
@@ -539,6 +539,7 @@ class LSTM():
                 i+=1
             self.parameters[param_key] = new_param
 
+"""
 leng = 5
 test = LSTM(leng, leng, [leng], [leng], [leng], [leng])
 
@@ -554,3 +555,4 @@ new_test = LSTM(leng, leng, [leng], [leng], [leng], [leng])
 new_test.load_parameters("test_params.txt")
 test_Y = new_test.predict(X/X_norm) * Y_norm
 print(test_Y)
+"""
