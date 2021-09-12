@@ -1,5 +1,5 @@
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 class LSTM():
 
     def __init__(self, input_size, output_size, forget_layers, remember_layers, in_gate_layers, select_layers):
@@ -446,8 +446,8 @@ class LSTM():
 
 
         iteration_axis = np.arange(stop=iterations)
-        plt.plot(iteration_axis, costs)
-        plt.savefig("latest_cost_currentgrad.png")
+        #plt.plot(iteration_axis, costs)
+        #plt.savefig("latest_cost_currentgrad.png")
 
 
     def predict(self, input):
@@ -538,17 +538,19 @@ class LSTM():
                 line = f.readline()
                 i+=1
             self.parameters[param_key] = new_param
-"""
-leng = 1
+
+leng = 5
 test = LSTM(leng, leng, [leng], [leng], [leng], [leng])
 
-X = np.arange(stop=50)
-X = X.reshape(1, X.shape[0])
+X = np.random.randint(0, 10, (leng, 20))
+
 X_norm = np.linalg.norm(X)
 Y = X
 Y_norm = np.linalg.norm(Y)
 
-test.train(X/X_norm, Y/Y_norm, 4, 0.2, 50)
+test.train(X/X_norm, Y/Y_norm, 4, 0.2, 1000)
 test.save_parameters("test_params.txt")
-test.load_parameters("test_params.txt")
-"""
+new_test = LSTM(leng, leng, [leng], [leng], [leng], [leng])
+new_test.load_parameters("test_params.txt")
+test_Y = new_test.predict(X/X_norm) * Y_norm
+print(test_Y)
