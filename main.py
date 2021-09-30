@@ -10,13 +10,14 @@
 
 #                              # IMPORTS #                                 #
 from scipy.fft import rfft, rfftfreq, irfft
-import rnn, wave, numpy, math
+import wave, numpy, math
 from dataconversion import *
 import matplotlib.pyplot as plt
 import numpy as np
 import time
 from LSTM import LSTM
 import os
+#from google.colab import files, drive
 ################################################################################
 
 #                          # GLOBAL CONSTANTS #                            #
@@ -186,14 +187,14 @@ def outAudio(mode, fname, params, data):
     f.close()
 
 
-def train():
+def train(arg_time, arg_learnrate, arg_iterations):
     # Get input/output filenames from input:
 
     # Take in audio as input
     # getAudio (file/live = 0/1, fname)
     model = ""
-    infname = "training/Raph_Nash_1.wav"
-    outfname = "training/Boris_Johnson_1.wav"
+    infname = "/content/drive/MyDrive/rnnvocalsynthesis/training/Raph_Nash_1.wav"
+    outfname = "/content/drive/MyDrive/rnnvocalsynthesis/training/Boris_Johnson_1.wav"
     print("Getting comparable input audio")
     t1 = time.time()
     indata, samp_rate_input, params_in = getAudio(0, infname)
@@ -211,7 +212,7 @@ def train():
 
     print("####################################")
     print("Input audio len (frames): {0}".format(len(indata)))
-    #print("Output audio len (frames): {0}".format(len(newvoicedata)))
+    print("Output audio len (frames): {0}".format(len(newvoicedata)))
     print("####################################")
 
     print("Processing 'input' audio")
@@ -228,35 +229,39 @@ def train():
 
     print("####################################")
     print("Input frequency samples len: {0}".format(len(infdata)))
-    #print("Output frequency samples len: {0}".format(len(newvoicefdata)))
+    print("Output frequency samples len: {0}".format(len(newvoicefdata)))
     print("####################################")
 
-    print("Normalizing input data (to avoid overflows)")
-    t1 = time.time()
-    norm_1 = np.linalg.norm(infdata)
-    infdata = infdata/norm_1
-    t2 = time.time()
-    print("Done: {0}s".format(t2 - t1))
+    #print("Normalizing input data (to avoid overflows)")
+    #t1 = time.time()
 
-    print("Normalizing output data (to avoid overflows)")
-    t1 = time.time()
-    norm_2 = np.linalg.norm(newvoicefdata)
-    newvoicefdata = newvoicefdata/norm_2
-    t2 = time.time()
-    print("Done: {0}s".format(t2 - t1))
+    infdata_mean = np.mean(infdata)
+    infdata_std = np.std(infdata)
+    infdata = (infdata - infdata_mean)/infdata_std
+    #t2 = time.time()
+    #print("Done: {0}s".format(t2 - t1))
+
+    #print("Normalizing output data (to avoid overflows)")
+    #t1 = time.time()
+
+    newvoicefdata_mean = np.mean(newvoicefdata)
+    newvoicefdata_std = np.std(newvoicefdata)
+    newvoicefdata = (newvoicefdata - newvoicefdata_mean)/newvoicefdata_std
+    #t2 = time.time()
+    #print("Done: {0}s".format(t2 - t1))
 
     print("input vector size: {0}".format(infdata.shape[0]))
     #print("output vector size: {0}".format(newvoicefdata.shape[0]))
 
     print("Commencing RNN training")
     internals = infdata.shape[0]
-    model = LSTM(internals, internals, [42, internals], [42, internals], [42, internals], [42, internals])
+    model = LSTM(internals, internals, [internals], [internals], [internals], [42, internals])
 
     if(os.path.exists("boris_params.txt")):
         model.load_parameters("boris_params.txt")
 
     t1 = time.time()
-    model.train(infdata, newvoicefdata, 10, 1.5, 10, "boris_loss_graph.png")
+    model.train(infdata, newvoicefdata, arg_time, arg_learnrate, arg_iterations, "boris_loss_graph.png")
     t2 = time.time()
     print("Trained in {0}s".format(t2-t1))
     print("Saving parameters...")
@@ -267,7 +272,7 @@ def train():
 
     print("Creating test output based on training input")
     t1 = time.time()
-    test_out = model.predict(infdata) * norm_2
+    test_out = (model.predict(infdata) * (indata_max - indata_min)) + indata_min
     outdata = deprocess(test_out.T)
     outAudio(0, "boris_train_out.wav", params_in, outdata)
     t2 = time.time()
@@ -306,5 +311,4 @@ def main():
     outdata = deprocess(newfrequencies.T)
     outAudio(0, "tests/output.wav", params_in, outdata)
 
-train()
-#main()
+train(10, 0.5, 1000)

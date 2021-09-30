@@ -36,6 +36,9 @@ class LSTM():
         self.select = {}
         self.remember = {}
 
+        # Anything else
+        self.overflow = False
+
         # previous_size - the size of the previous layer (first layer being the input)
         previous_size = self.input_and_output.shape[0]
         self.forget["input"] = np.zeros((previous_size, 1))
@@ -101,8 +104,25 @@ class LSTM():
         self.state_added = np.zeros((output_size, 1)) # state + remember
         self.state_tanh = np.zeros((output_size, 1)) #tanh(state)
 
+
+    def overflow_err(self,err,flag):
+        self.overflow = True
+
     def sigmoid(self, input):
-        return 1 / (1 + np.exp(-input))
+        np.seterr(over='call')
+        np.seterrcall(self.overflow_err)
+        val = 1 / (1 + np.exp(-input))
+        if(self.overflow):
+            val = np.zeros(input.shape)
+            for i in range(input.shape[0]):
+                for j in range(input.shape[1]):
+                    if (input[i][j] > 3):
+                        val[i][j] = 0
+                    else:
+                        val[i][j] = 1/(1 + np.exp(-input[i][j]))
+            self.overflow = False
+
+        return val
 
     def sigmoid_prime(self, input):
         return self.sigmoid(input) * (1 - self.sigmoid(input))
@@ -446,6 +466,7 @@ class LSTM():
 
 
         iteration_axis = np.arange(stop=iterations)
+        plt.figure("Gradient Descent")
         plt.plot(iteration_axis, costs)
         plt.savefig(fname)
 
@@ -538,21 +559,3 @@ class LSTM():
                 line = f.readline()
                 i+=1
             self.parameters[param_key] = new_param
-
-"""
-leng = 5
-test = LSTM(leng, leng, [leng], [leng], [leng], [leng])
-
-X = np.random.randint(0, 10, (leng, 20))
-
-X_norm = np.linalg.norm(X)
-Y = X
-Y_norm = np.linalg.norm(Y)
-
-test.train(X/X_norm, Y/Y_norm, 4, 0.2, 1000)
-test.save_parameters("test_params.txt")
-new_test = LSTM(leng, leng, [leng], [leng], [leng], [leng])
-new_test.load_parameters("test_params.txt")
-test_Y = new_test.predict(X/X_norm) * Y_norm
-print(test_Y)
-"""
