@@ -17,6 +17,7 @@ import numpy as np
 import time
 from LSTM import LSTM
 import os
+from feature_extraction import feature_extract
 #from google.colab import files, drive
 ################################################################################
 
@@ -118,12 +119,10 @@ def process(data, samp_size):
 def deprocess(data):
     new_samples = []
     first = irfft(data[0])
-    print(len(first), len(data[0]))
 
     # First sample to append:
     new_samples = np.concatenate((new_samples, first))
     samp_size = len(new_samples)
-    print(samp_size - f_offset)
 
     lim = len(data)
     for i in range(1, lim):
@@ -137,7 +136,6 @@ def deprocess(data):
             plt.plot(x, plot)
             plt.plot(x, new_samples[(f_offset * i):(f_offset * (i-1) + samp_size)])
 
-        print((f_offset * i)/44100)
         coeff_step = 1/(len(merge) + 1)
 
         for j in range(len(merge)):
@@ -150,7 +148,6 @@ def deprocess(data):
             plt.savefig("latest_plot.png")
 
         non_merge = aud_data[samp_size - f_offset: samp_size]
-        print(non_merge[0]/new_samples[-1], new_samples[-1]/new_samples[-2])
         new_samples = np.concatenate((new_samples, non_merge))
 
         if(i == 1):
@@ -161,7 +158,6 @@ def outAudio(mode, fname, params, data):
     # open wav file for writing
     f = wave.open(fname, mode='wb')
     f.setparams(params)
-    print(params)
     f.setnframes(0)
 
     sampwidth = f.getsampwidth()
@@ -169,14 +165,10 @@ def outAudio(mode, fname, params, data):
     # loop through samples
     firstit = 0
     k = 0
-    print(len(data))
     for frame in data:
         binframe = denaryToBinary(frame, 1, sampwidth)
         if(k == 1):
             hexframe = binaryToHex(binframe, 1)
-            print(frame)
-            print(binframe)
-            print(hexframe)
         else:
             hexframe = binaryToHex(binframe, 0)
         k += 1
@@ -186,113 +178,187 @@ def outAudio(mode, fname, params, data):
     # close file
     f.close()
 
+def mini_batchify(X, mini_batch_size):
+    mini_batches = []
+    for i in range(math.ceil(X.shape[1] / mini_batch_size)):
+        mini_batch = np.empty((X.shape[0], 1))
+        if ((i + 1) * mini_batch_size > X.shape[1]):
+            mini_batch = X[:,i * mini_batch_size:X.shape[1]]
+            remainder = mini_batch_size - X.shape[1] % mini_batch_size
+            mini_batch = np.append(mini_batch, np.zeros((X.shape[0], remainder)))
+        else:
+            mini_batch = X[:, i * mini_batch_size:(i + 1) * mini_batch_size]
+
+        mini_batches.append(mini_batch)
+
+    return mini_batches
+
+def divider(n):
+    divide = ""
+    for i in range(n):
+        divide += "="
+
+    print(divide)
 
 def train(arg_time, arg_learnrate, arg_iterations):
+    divider(50)
+    version = 0
+
     # Get input/output filenames from input:
-
     # Take in audio as input
-    # getAudio (file/live = 0/1, fname)
-    model = ""
-    infname = "/content/drive/MyDrive/rnnvocalsynthesis/training/Raph_Nash_1.wav"
-    outfname = "/content/drive/MyDrive/rnnvocalsynthesis/training/Boris_Johnson_1.wav"
-    print("Getting comparable input audio")
-    t1 = time.time()
-    indata, samp_rate_input, params_in = getAudio(0, infname)
-    t2 = time.time()
-    print("Audio taken in: {0}s".format(t2 - t1))
+    infname = "training/Raph_Nash_1.wav"
+    newvoicefname = "training/Boris_Johnson_1.wav"
+    divider(20)
+    print("GET AUDIO")
+    divider(20)
 
-    # Take in compared output
-    print("Getting comparable output audio")
-    t1 = time.time()
-    newvoicedata, samp_rate_newvoice, params_newvoice = getAudio(0, outfname)
-    t2 = time.time()
-    print("Audio taken in: {0}s".format(t2 - t1))
+    print("Taking in audio from {0}".format(infname))
+    indata, samp_rate_input, params_in = getAudio(0, infname)
+    print("Done")
+
+    print("Taking in audio from {0}".format(newvoicefname))
+    newvoicedata, samp_rate_newvoice, params_newvoice = getAudio(0, newvoicefname)
+    print("Done")
+
+    # Process audio
+    divider(20)
+    print("PROCESS AUDIO")
+    divider(20)
 
     samp_size = GLOBAL_SAMP_SIZE
 
-    print("####################################")
-    print("Input audio len (frames): {0}".format(len(indata)))
-    print("Output audio len (frames): {0}".format(len(newvoicedata)))
-    print("####################################")
-
-    print("Processing 'input' audio")
-    t1 = time.time()
+    print("Processing {0}".format(infname))
     infdata = process(indata, samp_size)
-    t2 = time.time()
-    print("Input audio processed in {0}s".format(t2 - t1))
+    print("Done")
 
-    print("Processing 'output' audio")
-    t1 = time.time()
+    print("Processing {0}".format(newvoicefname))
     newvoicefdata = process(newvoicedata, samp_size)
-    t2 = time.time()
-    print("Output audio processed in {0}s".format(t2 - t1))
+    print("Done")
 
-    print("####################################")
-    print("Input frequency samples len: {0}".format(len(infdata)))
-    print("Output frequency samples len: {0}".format(len(newvoicefdata)))
-    print("####################################")
+    # Normalise audio
+    divider(20)
+    print("NORMALISE AUDIO")
+    divider(20)
 
-    #print("Normalizing input data (to avoid overflows)")
-    #t1 = time.time()
+    print("Normalising input...")
+    in_max = np.max(infdata)
+    in_min = np.min(infdata)
+    infdata = (infdata - in_min)/(in_max - in_min)
+    print("Done")
+    divider(4)
 
-    infdata_mean = np.mean(infdata)
-    infdata_std = np.std(infdata)
-    infdata = (infdata - infdata_mean)/infdata_std
-    #t2 = time.time()
-    #print("Done: {0}s".format(t2 - t1))
+    print("Normalising new voice data...")
+    new_max = np.max(newvoicefdata)
+    new_min = np.min(newvoicefdata)
+    newvoicefdata = (newvoicefdata - new_min) / (new_max - new_min)
+    print("Done")
+    divider(4)
 
-    #print("Normalizing output data (to avoid overflows)")
-    #t1 = time.time()
+    # Initialise networks
+    divider(20)
+    print("INITIALISE NETWORKS")
+    divider(20)
 
-    newvoicefdata_mean = np.mean(newvoicefdata)
-    newvoicefdata_std = np.std(newvoicefdata)
-    newvoicefdata = (newvoicefdata - newvoicefdata_mean)/newvoicefdata_std
-    #t2 = time.time()
-    #print("Done: {0}s".format(t2 - t1))
+    print("Initialising networks")
+    features = 43
+    input_autoencoder = feature_extract([infdata.shape[0], features, infdata.shape[0]])
+    newvoice_autoencoder = feature_extract([newvoicefdata.shape[0], features, newvoicefdata.shape[0]])
 
-    print("input vector size: {0}".format(infdata.shape[0]))
-    #print("output vector size: {0}".format(newvoicefdata.shape[0]))
+    model = LSTM(features, features, [features], [features], [features], [features])
 
-    print("Commencing RNN training")
-    internals = infdata.shape[0]
-    model = LSTM(internals, internals, [internals], [internals], [internals], [42, internals])
+    print("Done")
 
-    if(os.path.exists("boris_params.txt")):
-        model.load_parameters("boris_params.txt")
+    # Train autencoders
+    divider(20)
+    print("TRAIN AUTOENCODERS")
+    divider(20)
+    # Set up minibatches
+    print("Setting up minibatches")
+    mini_batch_size = 10
+    mini_batches_input = mini_batchify(infdata, mini_batch_size)
+    mini_batches_newvoice = mini_batchify(newvoicefdata, mini_batch_size)
+    print("Done")
+    print(mini_batches_input[0])
+    divider(4)
 
-    t1 = time.time()
-    model.train(infdata, newvoicefdata, arg_time, arg_learnrate, arg_iterations, "boris_loss_graph.png")
-    t2 = time.time()
-    print("Trained in {0}s".format(t2-t1))
+    # Train
+    voice_in_params = "input_params_{0}_{1}.txt".format(features, version)
+    voice_out_params = "newvoice_params_{0}_{1}.txt".format(features, version)
+    if (os.path.exists(voice_in_params)):
+        print("Found {0}. Loading parameters...".format(voice_in_params))
+        input_autoencoder.load_parameters(voice_in_params)
+        print("Done")
+        divider(4)
+
+    print("Training input autoencoder...")
+    input_autoencoder.train(mini_batches_input, arg_iterations, 1, "in_voice_cost_{0}.png".format(features))
+    print("Done")
+    divider(4)
+
     print("Saving parameters...")
-    t1 = time.time()
-    model.save_parameters("boris_params.txt")
-    t2 = time.time()
-    print("Saved. Time taken: {0}s".format(t2 - t1))
+    input_autoencoder.save_parameters(voice_in_params)
+    print("Done")
+    divider(4)
 
-    print("Creating test output based on training input")
-    t1 = time.time()
-    test_out = (model.predict(infdata) * (indata_max - indata_min)) + indata_min
-    outdata = deprocess(test_out.T)
-    outAudio(0, "boris_train_out.wav", params_in, outdata)
-    t2 = time.time()
-    print("Done. Time taken {0}s".format(t2-t1))
+    if (os.path.exists(voice_out_params)):
+        print("Found {0}. Loading parameters...".format(voice_out_params))
+        newvoice_autoencoder.load_parameters(voice_out_params)
+        print("Done")
+        divider(4)
 
-    print("All done! :)")
-    #f_samp_width = params_in[1]
-    #outfdata = deprocess(infdata)
+    print("Training output autoencoder...")
+    newvoice_autoencoder.train(mini_batches_newvoice, arg_iterations, 1, "out_voice_cost_{0}.png".format(features))
+    print("Done")
+    divider(4)
 
-    #t2 = time.time()
-    #print("done: {0}ms".format(t2-t1))
+    print("Saving parameters...")
+    newvoice_autoencoder.save_parameters(voice_out_params)
+    print("Done")
+    divider(4)
 
-    #print("outputting audio")
-    #t1 = time.time()
-    #outAudio(0, outfname, params_in, outfdata)
-    #t2 = time.time()
-    #print("done: {0}ms".format(t2-t1))
-    # Take in audio as comparison output (the 'actual output' to compute loss)
-    #outdata, samp_rate_output = getAudio(0, outfname)
-    #outfdata = process(outfdata, samp_rate_output)
+    # Train LSTM
+    divider(20)
+    print("TRAIN LSTM")
+    divider(20)
+
+    print("Creating train input/output")
+    LSTM_in = input_autoencoder.inToMiddle(infdata)
+    LSTM_out = newvoice_autoencoder.inToMiddle(newvoicefdata)
+    print("Done")
+    divider(4)
+
+    if(os.path.exists("LSTM_{0}.txt".format(features))):
+        print("Found {0}. Loading parameters".format("LSTM_{0}.txt".format(features)))
+        model.load_parameters("LSTM_{0}.txt".format(features))
+        print("Done")
+        divider(4)
+
+    print("Training LSTM...")
+    model.train(LSTM_in, LSTM_out, arg_time, arg_learnrate, arg_iterations, "LSTM_cost.png")
+    print("Done")
+    divider(4)
+
+    print("Saving parameters...")
+    model.save_parameters("LSTM_{0}.txt".format(features))
+    print("Done")
+    divider(4)
+
+    # Create output based on training
+    divider(20)
+    print("CREATING TEST OUTPUT")
+    divider(20)
+
+    print("Passing through neural net")
+    LSTM_test_out = model.predict(LSTM_in)
+    print("Decoding")
+    outfdata = newvoice_autoencoder.middleToOut(LSTM_test_out)
+    print("Deprocessing")
+    outdata = ((deprocess(outfdata) * (new_max - new_min)) + new_min)/100
+    print("Outputting...")
+    outAudio(0, "tests/output.wav", params_in, outdata)
+    print("DONE! :)")
+    divider(50)
+
 
 def main():
     print(f_offset)
@@ -311,4 +377,4 @@ def main():
     outdata = deprocess(newfrequencies.T)
     outAudio(0, "tests/output.wav", params_in, outdata)
 
-train(10, 0.5, 1000)
+train(4, 1, 100)

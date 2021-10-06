@@ -8,7 +8,7 @@ class feature_extract():
             prev_size = self.layers[i].shape[0]
             next_size = self.layers[i + 1].shape[0]
 
-            self.parameters["weights_{0}".format(i + 1)] = np.random.randn(next_size, prev_size)
+            self.parameters["weights_{0}".format(i + 1)] = np.random.rand(next_size, prev_size)
             self.parameters["bias_{0}".format(i + 1)] = np.zeros((next_size, 1))
 
         self.overflow = False
@@ -102,15 +102,73 @@ class feature_extract():
     def train(self, X, iterations, lrate, fname):
         costs = []
         x_axis = [i + 1 for i in range(iterations)]
+        iter_cost = 0
         for i in range(iterations):
-            print("Iteration", i + 1)
-            cache = self.forward_pass(X)
-            cost = self.cost(cache, X)
-            costs.append(cost)
-            grads = self.backprop(cache, X)
-            self.update_parameters(grads, lrate)
+            print("Iteration",i)
+            iter_cost = 0
+            for batch in X:
+                cache = self.forward_pass(batch)
 
+                cost = self.cost(cache, batch)
+                iter_cost += cost/len(X)
+                grads = self.backprop(cache, batch)
+                self.update_parameters(grads, lrate)
+
+            costs.append(iter_cost)
+
+        print("Average Cost: " + str(iter_cost))
         plt.figure("Cost function")
         plt.plot(x_axis, costs)
         plt.savefig(fname)
-        plt.show()
+        #plt.show()
+
+    def inToMiddle(self, input):
+        A = input
+        for i in range((len(self.layers) - 1)//2):
+            W = self.parameters["weights_{0}".format(i + 1)]
+            Z = np.dot(W, A)
+            A = self.sigmoid(Z)
+
+        return A
+
+    def middleToOut(self, input):
+        A = input
+        middle = len(self.layers) // 2
+        for i in range((len(self.layers) - 1) // 2):
+            W = self.parameters["weights_{0}".format(middle + 1 + i)]
+            Z = np.dot(W, A)
+            A = self.sigmoid(Z)
+
+        return A
+
+    def getCost(self, true, predict):
+        return np.sum(np.power(true - predict, 2))/(true.shape[0] * true.shape[1])
+
+    def save_parameters(self, file):
+        f = open(file, "w")
+        for param_key in self.parameters:
+            param = self.parameters[param_key]
+            for i in range(param.shape[0]):
+                row = []
+                for j in range(param.shape[1]):
+                    row.append(str(param[i,j]))
+                f.write(",".join(row) + "\n")
+            f.write("_\n")
+        f.close()
+
+    def load_parameters(self, file):
+        f = open(file, "r")
+        for param_key in self.parameters:
+            new_param = np.empty((0, 0))
+            line = f.readline()
+            i = 0
+            while (len(line) > 0 and line[0] != '_'):
+                row = line.replace("\n","").split(",")
+                row = [float(i) for i in row]
+                row = np.array(row)
+                if(i == 0):
+                    new_param = np.empty((0, row.shape[0]))
+                new_param = np.append(new_param, [row], axis=0)
+                line = f.readline()
+                i+=1
+            self.parameters[param_key] = new_param
